@@ -41,15 +41,17 @@ public class TournamentParticipant extends BaseEntity{
     @Column(nullable = false)
     private TournamentParticipantStatus status;
 
-    @Column(nullable = false)
+    @Column(nullable = false, updatable = false)
     private LocalDateTime joinedAt;
 
     @PrePersist
     private void onCreate() {
-        this.joinedAt = LocalDateTime.now();
+        if (joinedAt == null) {
+            joinedAt = LocalDateTime.now();
+        }
 
-        if (this.score == null) {
-            this.score = 0.0;
+        if (score == null) {
+            score = 0.0;
         }
 
         if (status == null) {

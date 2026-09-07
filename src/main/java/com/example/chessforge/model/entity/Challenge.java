@@ -38,10 +38,10 @@ public class Challenge extends BaseEntity{
     @Column(nullable = false)
     private ChallengeStatus status;
 
-    @Column(nullable = false)
+    @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
-    @Column(nullable = false)
+    @Column(nullable = false, updatable = false)
     private LocalDateTime expiresAt;
 
     @PrePersist

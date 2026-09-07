@@ -4,13 +4,24 @@ import jakarta.persistence.*;
 import lombok.*;
 
 @Entity
-@Table(name = "tournament_matches")
+@Table(
+        name = "tournament_matches",
+        uniqueConstraints = {
+                @UniqueConstraint(
+                        columnNames = {
+                                "tournament_id",
+                                "round_number",
+                                "board_number"
+                        }
+                )
+        }
+)
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class TournamentMatch extends BaseEntity{
+public class TournamentMatch extends BaseEntity {
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "tournament_id", nullable = false)
@@ -31,4 +42,7 @@ public class TournamentMatch extends BaseEntity{
 
     @Column(nullable = false)
     private Integer roundNumber;
+
+    @Column(nullable = false)
+    private Integer boardNumber;
 }

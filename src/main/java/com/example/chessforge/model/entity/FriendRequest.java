@@ -7,20 +7,13 @@ import lombok.*;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(
-        name = "friend_requests",
-        uniqueConstraints = {
-                @UniqueConstraint(
-                        columnNames = {"sender_id", "receiver_id"}
-                )
-        }
-)
+@Table(name = "friend_requests")
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class FriendRequest extends BaseEntity{
+public class FriendRequest extends BaseEntity {
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "sender_id", nullable = false)

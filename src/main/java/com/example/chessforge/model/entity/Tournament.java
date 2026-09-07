@@ -15,7 +15,7 @@ import java.time.LocalDateTime;
 @Builder
 public class Tournament extends BaseEntity{
 
-    @Column(nullable = false)
+    @Column(nullable = false, length = 100)
     private String name;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
@@ -48,10 +48,12 @@ public class Tournament extends BaseEntity{
 
     @PrePersist
     private void onCreate() {
-        this.createdAt = LocalDateTime.now();
+        if (createdAt == null) {
+            createdAt = LocalDateTime.now();
+        }
 
-        if (this.status == null) {
-            this.status = TournamentStatus.REGISTRATION;
+        if (status == null) {
+            status = TournamentStatus.REGISTRATION;
         }
     }
 }

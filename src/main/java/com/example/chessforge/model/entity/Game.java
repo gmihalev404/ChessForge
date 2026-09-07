@@ -47,9 +47,9 @@ public class Game extends BaseEntity{
     private Integer blackTimeRemaining;
 
     @Lob
-    @Column(columnDefinition = "TEXT")
     private String pgn;
 
+    @Column(length = 100)
     private String currentFen;
 
     private LocalDateTime startedAt;
