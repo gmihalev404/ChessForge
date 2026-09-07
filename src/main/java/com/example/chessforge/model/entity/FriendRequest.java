@@ -30,7 +30,7 @@ public class FriendRequest extends BaseEntity {
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
-    private LocalDateTime respondedAt;
+    private LocalDateTime resolvedAt;
 
     @PrePersist
     private void onCreate() {
