@@ -1,0 +1,26 @@
+                         User
+                ┌─────────┼──────────────┐
+                │         │              │
+                ▼         ▼              ▼
+         FriendRequest Friendship    Challenge
+                                        │
+                                        │ accepted
+                                        ▼
+                                      Game
+                                    /      \
+                                 White    Black
+
+
+User
+ │
+ ▼
+TournamentParticipant
+ │
+ ▼
+Tournament
+ │
+ ▼
+TournamentMatch
+ │
+ ▼
+Game
