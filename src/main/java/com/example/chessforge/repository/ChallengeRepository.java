@@ -8,23 +8,25 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import java.time.LocalDateTime;
 import java.util.List;
 
-public interface ChallengeRepository
-        extends JpaRepository<Challenge, Long> {
+public interface ChallengeRepository extends JpaRepository<Challenge, Long> {
 
-    List<Challenge> findByOpponentAndStatus(
+    List<Challenge> findByOpponentAndStatusAndExpiresAtAfter(
             User opponent,
-            ChallengeStatus status
+            ChallengeStatus status,
+            LocalDateTime time
     );
 
-    List<Challenge> findByChallengerAndStatus(
+    List<Challenge> findByChallengerAndStatusAndExpiresAtAfter(
             User challenger,
-            ChallengeStatus status
+            ChallengeStatus status,
+            LocalDateTime time
     );
 
-    boolean existsByChallengerAndOpponentAndStatus(
+    boolean existsByChallengerAndOpponentAndStatusAndExpiresAtAfter(
             User challenger,
             User opponent,
-            ChallengeStatus status
+            ChallengeStatus status,
+            LocalDateTime time
     );
 
     List<Challenge> findByStatusAndExpiresAtBefore(
