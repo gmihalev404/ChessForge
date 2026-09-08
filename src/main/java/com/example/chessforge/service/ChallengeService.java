@@ -1,6 +1,7 @@
 package com.example.chessforge.service;
 
 import com.example.chessforge.model.entity.Challenge;
+import com.example.chessforge.model.entity.Game;
 import com.example.chessforge.model.entity.User;
 import com.example.chessforge.model.enums.ChallengeStatus;
 import com.example.chessforge.model.enums.ColorPreference;
@@ -22,6 +23,7 @@ public class ChallengeService {
     private static final long CHALLENGE_EXPIRATION_HOURS = 24;
 
     private final ChallengeRepository challengeRepository;
+    private final GameService gameService;
 
     @Transactional
     public Challenge sendChallenge(
@@ -55,7 +57,7 @@ public class ChallengeService {
     }
 
     @Transactional
-    public void acceptChallenge(
+    public Game acceptChallenge(
             Challenge challenge,
             User opponent
     ) {
@@ -75,7 +77,8 @@ public class ChallengeService {
         }
 
         challenge.setStatus(ChallengeStatus.ACCEPTED);
-        //todo: starts a game
+
+        return gameService.createGameFromChallenge(challenge);
     }
 
     @Transactional

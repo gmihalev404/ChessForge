@@ -35,7 +35,7 @@ public class Game extends BaseEntity{
     private GameResult result;
 
     @Column(nullable = false)
-    private Boolean rated;
+    private boolean rated;
 
     private Integer whiteRatingBefore;
     private Integer blackRatingBefore;

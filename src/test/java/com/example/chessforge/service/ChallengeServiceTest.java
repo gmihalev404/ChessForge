@@ -2,12 +2,14 @@ package com.example.chessforge.service;
 
 import com.example.chessforge.model.entity.BaseEntity;
 import com.example.chessforge.model.entity.Challenge;
+import com.example.chessforge.model.entity.Game;
 import com.example.chessforge.model.entity.User;
 import com.example.chessforge.model.enums.*;
 import com.example.chessforge.repository.ChallengeRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -23,6 +25,8 @@ class ChallengeServiceTest {
 
     @Mock
     private ChallengeRepository challengeRepository;
+    @Mock
+    private GameService gameService;
 
     private ChallengeService challengeService;
 
@@ -32,7 +36,11 @@ class ChallengeServiceTest {
 
     @BeforeEach
     void setUp() {
-        challengeService = new ChallengeService(challengeRepository);
+        challengeService =
+                new ChallengeService(
+                        challengeRepository,
+                        gameService
+                );
 
         challenger = createUser(1L, "challenger", UserStatus.ACTIVE);
         opponent = createUser(2L, "opponent", UserStatus.ACTIVE);
@@ -256,6 +264,7 @@ class ChallengeServiceTest {
                 ChallengeStatus.PENDING,
                 challenge.getStatus()
         );
+        verifyNoInteractions(gameService);
     }
 
     @Test
@@ -273,6 +282,7 @@ class ChallengeServiceTest {
                         opponent
                 )
         );
+        verifyNoInteractions(gameService);
     }
 
     @Test
@@ -297,6 +307,42 @@ class ChallengeServiceTest {
                 ChallengeStatus.PENDING,
                 challenge.getStatus()
         );
+        verifyNoInteractions(gameService);
+    }
+
+    @Test
+    void acceptChallengeShouldAcceptChallengeAndCreateGame() {
+
+        Challenge challenge =
+                createPendingChallenge(
+                        challenger,
+                        opponent
+                );
+
+        Game game = Game.builder()
+                .whitePlayer(challenger)
+                .blackPlayer(opponent)
+                .status(GameStatus.WAITING)
+                .build();
+
+        when(gameService.createGameFromChallenge(challenge))
+                .thenReturn(game);
+
+        Game result =
+                challengeService.acceptChallenge(
+                        challenge,
+                        opponent
+                );
+
+        assertEquals(
+                ChallengeStatus.ACCEPTED,
+                challenge.getStatus()
+        );
+
+        assertEquals(game, result);
+
+        verify(gameService)
+                .createGameFromChallenge(challenge);
     }
 
     // =========================================================
