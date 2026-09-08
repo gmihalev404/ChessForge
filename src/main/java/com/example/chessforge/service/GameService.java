@@ -19,6 +19,7 @@ import java.util.concurrent.ThreadLocalRandom;
 public class GameService {
 
     private final GameRepository gameRepository;
+    private final RatingService ratingService;
 
     @Transactional
     public Game createGameFromChallenge(Challenge challenge) {
@@ -29,38 +30,19 @@ public class GameService {
             );
         }
 
-        User whitePlayer;
-        User blackPlayer;
+        boolean challengerIsWhite = switch (challenge.getColorPreference()) {
+            case WHITE -> true;
+            case BLACK -> false;
+            case RANDOM -> ThreadLocalRandom.current().nextBoolean();
+        };
 
-        switch (challenge.getColorPreference()) {
+        User whitePlayer = challengerIsWhite
+                ? challenge.getChallenger()
+                : challenge.getOpponent();
 
-            case WHITE -> {
-                whitePlayer = challenge.getChallenger();
-                blackPlayer = challenge.getOpponent();
-            }
-
-            case BLACK -> {
-                whitePlayer = challenge.getOpponent();
-                blackPlayer = challenge.getChallenger();
-            }
-
-            case RANDOM -> {
-                boolean challengerIsWhite =
-                        ThreadLocalRandom.current().nextBoolean();
-
-                if (challengerIsWhite) {
-                    whitePlayer = challenge.getChallenger();
-                    blackPlayer = challenge.getOpponent();
-                } else {
-                    whitePlayer = challenge.getOpponent();
-                    blackPlayer = challenge.getChallenger();
-                }
-            }
-
-            default -> throw new IllegalStateException(
-                    "Unsupported color preference."
-            );
-        }
+        User blackPlayer = challengerIsWhite
+                ? challenge.getOpponent()
+                : challenge.getChallenger();
 
         Game game = Game.builder()
                 .whitePlayer(whitePlayer)
@@ -79,6 +61,18 @@ public class GameService {
         if (game.getStatus() != GameStatus.WAITING) {
             throw new IllegalStateException(
                     "Only a waiting game can be started."
+            );
+        }
+
+        if (hasActiveGame(game.getWhitePlayer())) {
+            throw new IllegalStateException(
+                    "White player already has an active game."
+            );
+        }
+
+        if (hasActiveGame(game.getBlackPlayer())) {
+            throw new IllegalStateException(
+                    "Black player already has an active game."
             );
         }
 
@@ -124,7 +118,7 @@ public class GameService {
         game.setStatus(GameStatus.FINISHED);
         game.setFinishedAt(LocalDateTime.now());
 
-        // Rating calculation will be added through RatingService.
+        ratingService.updateRatings(game);
     }
 
     @Transactional
@@ -145,6 +139,9 @@ public class GameService {
         game.setStatus(GameStatus.ABORTED);
         game.setTermination(GameTermination.ABORTED);
         game.setFinishedAt(LocalDateTime.now());
+
+        game.setWhiteRatingAfter(game.getWhiteRatingBefore());
+        game.setBlackRatingAfter(game.getBlackRatingBefore());
     }
 
     public List<Game> getGamesForUser(User user) {
@@ -157,34 +154,26 @@ public class GameService {
 
     private void setRatingSnapshots(Game game) {
 
-        TimeControlType type =
-                game.getTimeControl().getType();
+        TimeControlType type = game.getTimeControl().getType();
 
-        int whiteRating =
-                getRating(game.getWhitePlayer(), type);
+        int whiteRating = ratingService.getRating(
+                game.getWhitePlayer(),
+                type
+        );
 
-        int blackRating =
-                getRating(game.getBlackPlayer(), type);
+        int blackRating = ratingService.getRating(
+                game.getBlackPlayer(),
+                type
+        );
 
         game.setWhiteRatingBefore(whiteRating);
         game.setBlackRatingBefore(blackRating);
-
-        // Until RatingService calculates changes,
-        // "after" starts equal to "before".
-        game.setWhiteRatingAfter(whiteRating);
-        game.setBlackRatingAfter(blackRating);
     }
 
-    private int getRating(
-            User user,
-            TimeControlType type
-    ) {
-
-        return switch (type) {
-            case BULLET -> user.getBulletRating();
-            case BLITZ -> user.getBlitzRating();
-            case RAPID -> user.getRapidRating();
-            case CLASSICAL -> user.getClassicalRating();
-        };
+    private boolean hasActiveGame(User player) {
+        return gameRepository.existsByPlayerAndStatus(
+                player,
+                GameStatus.IN_PROGRESS
+        );
     }
 }

@@ -9,12 +9,13 @@ import com.example.chessforge.repository.GameRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDateTime;
-import java.util.Arrays;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -25,6 +26,8 @@ class GameServiceTest {
 
     @Mock
     private GameRepository gameRepository;
+    @Mock
+    private RatingService ratingService;
 
     private GameService gameService;
 
@@ -34,7 +37,7 @@ class GameServiceTest {
     @BeforeEach
     void setUp() {
 
-        gameService = new GameService(gameRepository);
+        gameService = new GameService(gameRepository, ratingService);
 
         challenger = createUser(
                 1L,
@@ -254,94 +257,105 @@ class GameServiceTest {
                 IllegalStateException.class,
                 () -> gameService.startGame(game)
         );
+
+        verifyNoInteractions(gameRepository, ratingService);
     }
 
     @Test
-    void startGameShouldUseBulletRatings() {
+    void startGameShouldSetRatingSnapshotsUsingRatingService() {
 
-        TimeControl control =
-                findTimeControl(TimeControlType.BULLET);
+        TimeControl timeControl = TimeControl.values()[0];
 
-        Game game =
-                createWaitingGame(challenger, opponent, control);
+        Game game = createWaitingGame(
+                challenger,
+                opponent,
+                timeControl
+        );
+
+        TimeControlType type = timeControl.getType();
+
+        when(ratingService.getRating(
+                challenger,
+                type
+        )).thenReturn(650);
+
+        when(ratingService.getRating(
+                opponent,
+                type
+        )).thenReturn(720);
 
         gameService.startGame(game);
 
         assertEquals(
-                challenger.getBulletRating(),
+                650,
                 game.getWhiteRatingBefore()
         );
 
         assertEquals(
-                opponent.getBulletRating(),
+                720,
                 game.getBlackRatingBefore()
         );
+
+        verify(ratingService)
+                .getRating(challenger, type);
+
+        verify(ratingService)
+                .getRating(opponent, type);
     }
 
-    @Test
-    void startGameShouldUseBlitzRatings() {
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void startGameShouldThrowWhenEitherPlayerAlreadyHasActiveGame(
+            boolean whitePlayerHasActiveGame
+    ) {
 
-        TimeControl control =
-                findTimeControl(TimeControlType.BLITZ);
+        Game game = createWaitingGame(
+                challenger,
+                opponent,
+                TimeControl.values()[0]
+        );
 
-        Game game =
-                createWaitingGame(challenger, opponent, control);
+        if (whitePlayerHasActiveGame) {
+            doReturn(true)
+                    .when(gameRepository)
+                    .existsByPlayerAndStatus(
+                            challenger,
+                            GameStatus.IN_PROGRESS
+                    );
+        } else {
+            doReturn(false)
+                    .when(gameRepository)
+                    .existsByPlayerAndStatus(
+                            challenger,
+                            GameStatus.IN_PROGRESS
+                    );
 
-        gameService.startGame(game);
+            doReturn(true)
+                    .when(gameRepository)
+                    .existsByPlayerAndStatus(
+                            opponent,
+                            GameStatus.IN_PROGRESS
+                    );
+        }
 
-        assertEquals(
-                challenger.getBlitzRating(),
-                game.getWhiteRatingBefore()
+        IllegalStateException exception = assertThrows(
+                IllegalStateException.class,
+                () -> gameService.startGame(game)
         );
 
         assertEquals(
-                opponent.getBlitzRating(),
-                game.getBlackRatingBefore()
-        );
-    }
-
-    @Test
-    void startGameShouldUseRapidRatings() {
-
-        TimeControl control =
-                findTimeControl(TimeControlType.RAPID);
-
-        Game game =
-                createWaitingGame(challenger, opponent, control);
-
-        gameService.startGame(game);
-
-        assertEquals(
-                challenger.getRapidRating(),
-                game.getWhiteRatingBefore()
+                whitePlayerHasActiveGame
+                        ? "White player already has an active game."
+                        : "Black player already has an active game.",
+                exception.getMessage()
         );
 
         assertEquals(
-                opponent.getRapidRating(),
-                game.getBlackRatingBefore()
-        );
-    }
-
-    @Test
-    void startGameShouldUseClassicalRatings() {
-
-        TimeControl control =
-                findTimeControl(TimeControlType.CLASSICAL);
-
-        Game game =
-                createWaitingGame(challenger, opponent, control);
-
-        gameService.startGame(game);
-
-        assertEquals(
-                challenger.getClassicalRating(),
-                game.getWhiteRatingBefore()
+                GameStatus.WAITING,
+                game.getStatus()
         );
 
-        assertEquals(
-                opponent.getClassicalRating(),
-                game.getBlackRatingBefore()
-        );
+        verifyNoInteractions(ratingService);
     }
 
     // =========================================================
@@ -349,7 +363,7 @@ class GameServiceTest {
     // =========================================================
 
     @Test
-    void finishGameShouldFinishActiveGame() {
+    void finishGameShouldFinishActiveGameAndUpdateRatings() {
 
         Game game = createWaitingGame(
                 challenger,
@@ -385,6 +399,8 @@ class GameServiceTest {
 
         assertFalse(game.getFinishedAt().isBefore(before));
         assertFalse(game.getFinishedAt().isAfter(after));
+
+        verify(ratingService).updateRatings(game);
     }
 
     @Test
@@ -404,6 +420,8 @@ class GameServiceTest {
                         GameTermination.CHECKMATE
                 )
         );
+
+        verifyNoInteractions(ratingService);
     }
 
     @Test
@@ -425,6 +443,8 @@ class GameServiceTest {
                         GameTermination.CHECKMATE
                 )
         );
+
+        verifyNoInteractions(ratingService);
     }
 
     @Test
@@ -446,6 +466,8 @@ class GameServiceTest {
                         null
                 )
         );
+
+        verifyNoInteractions(ratingService);
     }
 
     // =========================================================
@@ -453,7 +475,7 @@ class GameServiceTest {
     // =========================================================
 
     @Test
-    void abortGameShouldAbortWaitingGame() {
+    void abortGameShouldKeepRatingsUnchanged() {
 
         Game game = createWaitingGame(
                 challenger,
@@ -461,16 +483,19 @@ class GameServiceTest {
                 TimeControl.values()[0]
         );
 
+        game.setWhiteRatingBefore(600);
+        game.setBlackRatingBefore(550);
+
         gameService.abortGame(game);
 
         assertEquals(GameStatus.ABORTED, game.getStatus());
-
-        assertEquals(
-                GameTermination.ABORTED,
-                game.getTermination()
-        );
-
+        assertEquals(GameTermination.ABORTED, game.getTermination());
         assertNotNull(game.getFinishedAt());
+
+        assertEquals(600, game.getWhiteRatingAfter());
+        assertEquals(550, game.getBlackRatingAfter());
+
+        verifyNoInteractions(ratingService);
     }
 
     @Test
@@ -629,18 +654,6 @@ class GameServiceTest {
                 .rated(true)
                 .status(GameStatus.WAITING)
                 .build();
-    }
-
-    private TimeControl findTimeControl(
-            TimeControlType type
-    ) {
-
-        return Arrays.stream(TimeControl.values())
-                .filter(timeControl ->
-                        timeControl.getType() == type
-                )
-                .findFirst()
-                .orElseThrow();
     }
 
     private void setId(
