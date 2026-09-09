@@ -24,3 +24,30 @@ TournamentMatch
  │
  ▼
 Game
+
+<----------------------------------------------------------------------------------------------->
+
+TournamentService
+│
+├─ createTournament
+├─ joinTournament
+├─ withdraw
+├─ forfeit
+├─ startTournament
+├─ createNextRound
+├─ reportNoShow
+├─ finishTournament
+├─ getParticipants
+└─ getStandings
+       │
+       ├── TournamentPairingService
+       │      ├─ single elimination
+       │      ├─ round robin
+       │      └─ swiss
+       │
+       └── TournamentLeaderboardService
+              ├─ points
+              ├─ Buchholz
+              ├─ Sonneborn-Berger
+              ├─ direct encounter
+              └─ configured tie-break ordering

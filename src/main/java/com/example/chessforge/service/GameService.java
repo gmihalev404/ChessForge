@@ -1,8 +1,6 @@
 package com.example.chessforge.service;
 
-import com.example.chessforge.model.entity.Challenge;
-import com.example.chessforge.model.entity.Game;
-import com.example.chessforge.model.entity.User;
+import com.example.chessforge.model.entity.*;
 import com.example.chessforge.model.enums.*;
 import com.example.chessforge.repository.GameRepository;
 import lombok.RequiredArgsConstructor;
@@ -44,15 +42,33 @@ public class GameService {
                 ? challenge.getOpponent()
                 : challenge.getChallenger();
 
-        Game game = Game.builder()
-                .whitePlayer(whitePlayer)
-                .blackPlayer(blackPlayer)
-                .timeControl(challenge.getTimeControl())
-                .rated(challenge.isRated())
-                .status(GameStatus.WAITING)
-                .build();
+        return createGame(
+                whitePlayer,
+                blackPlayer,
+                challenge.getTimeControl(),
+                challenge.isRated(),
+                null
+        );
+    }
 
-        return gameRepository.save(game);
+    @Transactional
+    public Game createGameFromTournament(TournamentMatch match) {
+
+        if (match.getBlackParticipant() == null) {
+            throw new IllegalStateException(
+                    "A bye match cannot create a game."
+            );
+        }
+
+        Tournament tournament = match.getTournament();
+
+        return createGame(
+                match.getWhiteParticipant().getUser(),
+                match.getBlackParticipant().getUser(),
+                tournament.getTimeControl(),
+                tournament.isRated(),
+                match
+        );
     }
 
     @Transactional
@@ -152,6 +168,10 @@ public class GameService {
                 );
     }
 
+    // =========================================================
+    // HELPERS
+    // =========================================================
+
     private void setRatingSnapshots(Game game) {
 
         TimeControlType type = game.getTimeControl().getType();
@@ -175,5 +195,31 @@ public class GameService {
                 player,
                 GameStatus.IN_PROGRESS
         );
+    }
+
+    private Game createGame(
+            User whitePlayer,
+            User blackPlayer,
+            TimeControl timeControl,
+            boolean rated,
+            TournamentMatch tournamentMatch
+    ) {
+
+        if (whitePlayer.getId().equals(blackPlayer.getId())) {
+            throw new IllegalArgumentException(
+                    "A player cannot play against themselves."
+            );
+        }
+
+        Game game = Game.builder()
+                .whitePlayer(whitePlayer)
+                .blackPlayer(blackPlayer)
+                .timeControl(timeControl)
+                .rated(rated)
+                .status(GameStatus.WAITING)
+                .tournamentMatch(tournamentMatch)
+                .build();
+
+        return gameRepository.save(game);
     }
 }

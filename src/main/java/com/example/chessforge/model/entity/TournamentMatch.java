@@ -1,20 +1,20 @@
 package com.example.chessforge.model.entity;
 
+import com.example.chessforge.model.enums.TournamentMatchStatus;
+import com.example.chessforge.model.enums.TournamentMatchTermination;
 import jakarta.persistence.*;
 import lombok.*;
 
 @Entity
 @Table(
         name = "tournament_matches",
-        uniqueConstraints = {
-                @UniqueConstraint(
-                        columnNames = {
-                                "tournament_id",
-                                "round_number",
-                                "board_number"
-                        }
-                )
-        }
+        uniqueConstraints = @UniqueConstraint(
+                columnNames = {
+                        "tournament_id",
+                        "round_number",
+                        "board_number"
+                }
+        )
 )
 @Getter
 @Setter
@@ -34,15 +34,28 @@ public class TournamentMatch extends BaseEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "black_participant_id")
     private TournamentParticipant blackParticipant;
-    //A match with no black participant represents a bye.
-
-    @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "game_id")
-    private Game game;
 
     @Column(nullable = false)
     private Integer roundNumber;
 
     @Column(nullable = false)
     private Integer boardNumber;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private TournamentMatchStatus status;
+
+    @Enumerated(EnumType.STRING)
+    private TournamentMatchTermination termination;
+
+    private Double whiteScore;
+
+    private Double blackScore;
+
+    @PrePersist
+    private void onCreate() {
+        if (status == null) {
+            status = TournamentMatchStatus.PENDING;
+        }
+    }
 }

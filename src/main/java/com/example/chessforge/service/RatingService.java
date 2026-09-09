@@ -64,6 +64,23 @@ public class RatingService {
         game.setBlackRatingAfter(newBlackRating);
     }
 
+    public int getRating(
+            User user,
+            TimeControlType type
+    ) {
+
+        return switch (type) {
+            case BULLET -> user.getBulletRating();
+            case BLITZ -> user.getBlitzRating();
+            case RAPID -> user.getRapidRating();
+            case CLASSICAL -> user.getClassicalRating();
+        };
+    }
+
+    // =========================================================
+    // HELPERS
+    // =========================================================
+
     private double expectedScore(
             int playerRating,
             int opponentRating
@@ -94,19 +111,6 @@ public class RatingService {
             case WHITE_WIN -> 1.0;
             case BLACK_WIN -> 0.0;
             case DRAW -> 0.5;
-        };
-    }
-
-    public int getRating(
-            User user,
-            TimeControlType type
-    ) {
-
-        return switch (type) {
-            case BULLET -> user.getBulletRating();
-            case BLITZ -> user.getBlitzRating();
-            case RAPID -> user.getRapidRating();
-            case CLASSICAL -> user.getClassicalRating();
         };
     }
 

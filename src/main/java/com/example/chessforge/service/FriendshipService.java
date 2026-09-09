@@ -159,6 +159,10 @@ public class FriendshipService {
                 .findByUser1OrUser2(user, user);
     }
 
+    // =========================================================
+    // HELPERS
+    // =========================================================
+
     private boolean hasPendingRequest(User userA, User userB) {
 
         return friendRequestRepository

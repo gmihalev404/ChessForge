@@ -148,6 +148,10 @@ public class ChallengeService {
                 );
     }
 
+    // =========================================================
+    // HELPERS
+    // =========================================================
+
     private void validateUsers(
             User challenger,
             User opponent

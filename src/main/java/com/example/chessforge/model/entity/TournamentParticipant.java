@@ -9,18 +9,19 @@ import java.time.LocalDateTime;
 @Entity
 @Table(
         name = "tournament_participants",
-        uniqueConstraints = {
-                @UniqueConstraint(
-                        columnNames = {"tournament_id", "user_id"}
-                )
-        }
+        uniqueConstraints = @UniqueConstraint(
+                columnNames = {
+                        "tournament_id",
+                        "user_id"
+                }
+        )
 )
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class TournamentParticipant extends BaseEntity{
+public class TournamentParticipant extends BaseEntity {
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "tournament_id", nullable = false)
@@ -46,6 +47,7 @@ public class TournamentParticipant extends BaseEntity{
 
     @PrePersist
     private void onCreate() {
+
         if (joinedAt == null) {
             joinedAt = LocalDateTime.now();
         }

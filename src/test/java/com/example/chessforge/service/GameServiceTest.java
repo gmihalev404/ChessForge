@@ -1,9 +1,6 @@
 package com.example.chessforge.service;
 
-import com.example.chessforge.model.entity.BaseEntity;
-import com.example.chessforge.model.entity.Challenge;
-import com.example.chessforge.model.entity.Game;
-import com.example.chessforge.model.entity.User;
+import com.example.chessforge.model.entity.*;
 import com.example.chessforge.model.enums.*;
 import com.example.chessforge.repository.GameRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -198,6 +195,107 @@ class GameServiceTest {
         assertEquals(GameStatus.WAITING, savedGame.getStatus());
         assertEquals(challenge.getTimeControl(), savedGame.getTimeControl());
         assertEquals(challenge.isRated(), savedGame.isRated());
+    }
+
+    @Test
+    void createGameFromTournamentShouldCreateWaitingGame() {
+
+        Tournament tournament = Tournament.builder()
+                .timeControl(TimeControl.values()[0])
+                .rated(true)
+                .build();
+
+        TournamentParticipant whiteParticipant =
+                TournamentParticipant.builder()
+                        .tournament(tournament)
+                        .user(challenger)
+                        .status(TournamentParticipantStatus.ACTIVE)
+                        .build();
+
+        TournamentParticipant blackParticipant =
+                TournamentParticipant.builder()
+                        .tournament(tournament)
+                        .user(opponent)
+                        .status(TournamentParticipantStatus.ACTIVE)
+                        .build();
+
+        TournamentMatch match = TournamentMatch.builder()
+                .tournament(tournament)
+                .whiteParticipant(whiteParticipant)
+                .blackParticipant(blackParticipant)
+                .roundNumber(1)
+                .boardNumber(1)
+                .status(TournamentMatchStatus.PENDING)
+                .build();
+
+        when(gameRepository.save(any(Game.class)))
+                .thenAnswer(invocation ->
+                        invocation.getArgument(0)
+                );
+
+        Game game =
+                gameService.createGameFromTournament(match);
+
+        assertEquals(challenger, game.getWhitePlayer());
+        assertEquals(opponent, game.getBlackPlayer());
+
+        assertEquals(
+                tournament.getTimeControl(),
+                game.getTimeControl()
+        );
+
+        assertTrue(game.isRated());
+
+        assertEquals(
+                GameStatus.WAITING,
+                game.getStatus()
+        );
+
+        assertEquals(
+                match,
+                game.getTournamentMatch()
+        );
+
+        verify(gameRepository)
+                .save(game);
+    }
+
+    @Test
+    void createGameFromTournamentShouldThrowForByeMatch() {
+
+        Tournament tournament = Tournament.builder()
+                .timeControl(TimeControl.values()[0])
+                .rated(true)
+                .build();
+
+        TournamentParticipant participant =
+                TournamentParticipant.builder()
+                        .tournament(tournament)
+                        .user(challenger)
+                        .status(TournamentParticipantStatus.ACTIVE)
+                        .build();
+
+        TournamentMatch match = TournamentMatch.builder()
+                .tournament(tournament)
+                .whiteParticipant(participant)
+                .blackParticipant(null)
+                .roundNumber(1)
+                .boardNumber(1)
+                .status(TournamentMatchStatus.COMPLETED)
+                .termination(TournamentMatchTermination.BYE)
+                .build();
+
+        IllegalStateException exception = assertThrows(
+                IllegalStateException.class,
+                () -> gameService.createGameFromTournament(match)
+        );
+
+        assertEquals(
+                "A bye match cannot create a game.",
+                exception.getMessage()
+        );
+
+        verifyNoInteractions(gameRepository);
     }
 
     // =========================================================

@@ -5,6 +5,8 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "tournaments")
@@ -13,7 +15,7 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class Tournament extends BaseEntity{
+public class Tournament extends BaseEntity {
 
     @Column(nullable = false, length = 100)
     private String name;
@@ -40,6 +42,22 @@ public class Tournament extends BaseEntity{
     private Integer maxPlayers;
 
     @Column(nullable = false)
+    private Double byePoints;
+
+    @Column(nullable = false)
+    private boolean armageddonForFirstPlaceTie;
+
+    @ElementCollection
+    @CollectionTable(
+            name = "tournament_tiebreaks",
+            joinColumns = @JoinColumn(name = "tournament_id")
+    )
+    @Enumerated(EnumType.STRING)
+    @OrderColumn(name = "priority")
+    @Column(name = "tiebreak_type", nullable = false)
+    private List<TieBreakType> tieBreaks;
+
+    @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
     private LocalDateTime startsAt;
@@ -48,12 +66,21 @@ public class Tournament extends BaseEntity{
 
     @PrePersist
     private void onCreate() {
+
         if (createdAt == null) {
             createdAt = LocalDateTime.now();
         }
 
         if (status == null) {
             status = TournamentStatus.REGISTRATION;
+        }
+
+        if (byePoints == null) {
+            byePoints = 1.0;
+        }
+
+        if (tieBreaks == null) {
+            tieBreaks = new ArrayList<>();
         }
     }
 }

@@ -1,6 +1,7 @@
 package com.example.chessforge.repository;
 
 import com.example.chessforge.model.entity.Game;
+import com.example.chessforge.model.entity.TournamentMatch;
 import com.example.chessforge.model.entity.User;
 import com.example.chessforge.model.enums.GameStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -14,6 +15,10 @@ public interface GameRepository extends JpaRepository<Game, Long> {
     List<Game> findByWhitePlayerOrBlackPlayerOrderByStartedAtDesc(
             User whitePlayer,
             User blackPlayer
+    );
+
+    List<Game> findByTournamentMatchOrderById(
+            TournamentMatch tournamentMatch
     );
 
     List<Game> findByStatus(GameStatus status);

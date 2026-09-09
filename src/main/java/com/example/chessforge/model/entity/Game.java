@@ -52,6 +52,10 @@ public class Game extends BaseEntity{
     @Column(length = 100)
     private String currentFen;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "tournament_match_id")
+    private TournamentMatch tournamentMatch;
+
     private LocalDateTime startedAt;
 
     private LocalDateTime finishedAt;
