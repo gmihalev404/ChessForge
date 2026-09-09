@@ -57,6 +57,9 @@ public class Tournament extends BaseEntity {
     @Column(name = "tiebreak_type", nullable = false)
     private List<TieBreakType> tieBreaks;
 
+    @Column(nullable = false)
+    private Integer currentRound;
+
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 

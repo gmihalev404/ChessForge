@@ -228,6 +228,18 @@ public class TournamentService {
         participant.setStatus(
                 TournamentParticipantStatus.FORFEITED
         );
+
+        List<TournamentMatch> currentRoundMatches =
+                matchRepository
+                        .findByTournamentAndRoundNumberOrderByBoardNumber(
+                                tournament,
+                                tournament.getCurrentRound()
+                        );
+
+        resolveAutomaticResults(
+                tournament,
+                currentRoundMatches
+        );
     }
 
     // =========================================================
@@ -309,7 +321,75 @@ public class TournamentService {
                 TournamentStatus.IN_PROGRESS
         );
 
+        tournament.setCurrentRound(1);
+
+        resolveAutomaticResults(
+                tournament,
+                matches.stream()
+                        .filter(match ->
+                                match.getRoundNumber() == 1
+                        )
+                        .toList()
+        );
+
         return matches;
+    }
+
+    @Transactional
+    public List<TournamentMatch> startNextRound(
+            Tournament tournament
+    ) {
+
+        if (tournament.getStatus()
+                != TournamentStatus.IN_PROGRESS) {
+
+            throw new IllegalStateException(
+                    "Only an active tournament can advance to the next round."
+            );
+        }
+
+        if (tournament.getCurrentRound() == null) {
+            throw new IllegalStateException(
+                    "Tournament has no active round."
+            );
+        }
+
+        validateCurrentRoundCompleted(tournament);
+
+        int nextRoundNumber =
+                tournament.getCurrentRound() + 1;
+
+        if (tournament.getFormat()
+                == TournamentFormat.ROUND_ROBIN) {
+
+            List<TournamentMatch> nextRoundMatches =
+                    matchRepository
+                            .findByTournamentAndRoundNumberOrderByBoardNumber(
+                                    tournament,
+                                    nextRoundNumber
+                            );
+
+            if (nextRoundMatches.isEmpty()) {
+                throw new IllegalStateException(
+                        "There are no more rounds."
+                );
+            }
+
+            tournament.setCurrentRound(
+                    nextRoundNumber
+            );
+
+            resolveAutomaticResults(
+                    tournament,
+                    nextRoundMatches
+            );
+
+            return nextRoundMatches;
+        }
+
+        throw new UnsupportedOperationException(
+                "Next-round handling is not implemented for this tournament format yet."
+        );
     }
 
     // =========================================================
@@ -448,6 +528,177 @@ public class TournamentService {
 
             throw new IllegalStateException(
                     "Only the tournament creator can perform this action."
+            );
+        }
+    }
+
+    private int determineNextRoundNumber(
+            Tournament tournament
+    ) {
+
+        return matchRepository
+                .findByTournament(tournament)
+                .stream()
+                .map(TournamentMatch::getRoundNumber)
+                .max(Integer::compareTo)
+                .orElse(0)
+                + 1;
+    }
+
+    private void resolveAutomaticResults(
+            Tournament tournament,
+            List<TournamentMatch> matches
+    ) {
+
+        for (TournamentMatch match : matches) {
+
+            if (match.getStatus()
+                    != TournamentMatchStatus.PENDING) {
+                continue;
+            }
+
+            TournamentParticipant white =
+                    match.getWhiteParticipant();
+
+            TournamentParticipant black =
+                    match.getBlackParticipant();
+
+            // =====================================================
+            // TRUE BYE
+            // =====================================================
+
+            if (black == null) {
+
+                double points =
+                        white.getStatus()
+                                == TournamentParticipantStatus.ACTIVE
+                                ? tournament.getByePoints()
+                                : 0.0;
+
+                match.setWhiteScore(points);
+                match.setBlackScore(null);
+
+                match.setTermination(
+                        TournamentMatchTermination.BYE
+                );
+
+                match.setStatus(
+                        TournamentMatchStatus.COMPLETED
+                );
+
+                addScore(white, points);
+
+                continue;
+            }
+
+            boolean whiteForfeited =
+                    white.getStatus()
+                            == TournamentParticipantStatus.FORFEITED;
+
+            boolean blackForfeited =
+                    black.getStatus()
+                            == TournamentParticipantStatus.FORFEITED;
+
+            // =====================================================
+            // DOUBLE FORFEIT
+            // =====================================================
+
+            if (whiteForfeited && blackForfeited) {
+
+                match.setWhiteScore(0.0);
+                match.setBlackScore(0.0);
+
+                match.setTermination(
+                        TournamentMatchTermination.DOUBLE_FORFEIT
+                );
+
+                match.setStatus(
+                        TournamentMatchStatus.COMPLETED
+                );
+
+                continue;
+            }
+
+            // =====================================================
+            // WHITE FORFEIT
+            // =====================================================
+
+            if (whiteForfeited) {
+
+                match.setWhiteScore(0.0);
+                match.setBlackScore(1.0);
+
+                match.setTermination(
+                        TournamentMatchTermination.WHITE_FORFEIT
+                );
+
+                match.setStatus(
+                        TournamentMatchStatus.COMPLETED
+                );
+
+                addScore(black, 1.0);
+
+                continue;
+            }
+
+            // =====================================================
+            // BLACK FORFEIT
+            // =====================================================
+
+            if (blackForfeited) {
+
+                match.setWhiteScore(1.0);
+                match.setBlackScore(0.0);
+
+                match.setTermination(
+                        TournamentMatchTermination.BLACK_FORFEIT
+                );
+
+                match.setStatus(
+                        TournamentMatchStatus.COMPLETED
+                );
+
+                addScore(white, 1.0);
+            }
+        }
+    }
+
+    private void addScore(
+            TournamentParticipant participant,
+            double points
+    ) {
+
+        double currentScore =
+                participant.getScore() == null
+                        ? 0.0
+                        : participant.getScore();
+
+        participant.setScore(
+                currentScore + points
+        );
+    }
+
+    private void validateCurrentRoundCompleted(
+            Tournament tournament
+    ) {
+
+        List<TournamentMatch> matches =
+                matchRepository
+                        .findByTournamentAndRoundNumberOrderByBoardNumber(
+                                tournament,
+                                tournament.getCurrentRound()
+                        );
+
+        boolean unfinished =
+                matches.stream()
+                        .anyMatch(match ->
+                                match.getStatus()
+                                        != TournamentMatchStatus.COMPLETED
+                        );
+
+        if (unfinished) {
+            throw new IllegalStateException(
+                    "The current round must be completed first."
             );
         }
     }
