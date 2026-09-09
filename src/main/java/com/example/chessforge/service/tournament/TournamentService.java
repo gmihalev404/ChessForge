@@ -46,7 +46,8 @@ public class TournamentService {
             LocalDateTime startsAt,
             double byePoints,
             List<TieBreakType> tieBreaks,
-            boolean armageddonForFirstPlaceTie
+            boolean armageddonForFirstPlaceTie,
+            Integer numberOfRounds
     ) {
 
         if (creator.getStatus() != UserStatus.ACTIVE) {
@@ -85,6 +86,15 @@ public class TournamentService {
             );
         }
 
+        if (format == TournamentFormat.SWISS
+                && (numberOfRounds == null
+                || numberOfRounds < 1)) {
+
+            throw new IllegalArgumentException(
+                    "A Swiss tournament must have at least one round."
+            );
+        }
+
         Tournament tournament = Tournament.builder()
                 .name(name)
                 .creator(creator)
@@ -103,6 +113,7 @@ public class TournamentService {
                         armageddonForFirstPlaceTie
                 )
                 .status(TournamentStatus.REGISTRATION)
+                .numberOfRounds(numberOfRounds)
                 .build();
 
         return tournamentRepository.save(tournament);
@@ -298,11 +309,10 @@ public class TournamentService {
         List<TournamentParticipant> participants =
                 getActiveParticipants(tournament);
 
-        if (participants.size() < 2) {
-            throw new IllegalStateException(
-                    "At least two active participants are required."
-            );
-        }
+        validateTournamentCanStart(
+                tournament,
+                participants
+        );
 
         assignSeeds(
                 tournament,
@@ -349,47 +359,127 @@ public class TournamentService {
         }
 
         if (tournament.getCurrentRound() == null) {
+
             throw new IllegalStateException(
                     "Tournament has no active round."
             );
         }
 
-        validateCurrentRoundCompleted(tournament);
+        // =========================================================
+        // SWISS - LAST ROUND CHECK
+        // =========================================================
+
+        if (tournament.getFormat()
+                == TournamentFormat.SWISS
+                && tournament.getCurrentRound()
+                >= tournament.getNumberOfRounds()) {
+
+            throw new IllegalStateException(
+                    "The Swiss tournament has no more rounds."
+            );
+        }
+
+        // =========================================================
+        // CURRENT ROUND MUST BE FINISHED
+        // =========================================================
+
+        validateCurrentRoundCompleted(
+                tournament
+        );
 
         int nextRoundNumber =
                 tournament.getCurrentRound() + 1;
 
+        List<TournamentMatch> matches;
+
+        // =========================================================
+        // ROUND ROBIN
+        // =========================================================
+
         if (tournament.getFormat()
                 == TournamentFormat.ROUND_ROBIN) {
 
-            List<TournamentMatch> nextRoundMatches =
+            /*
+             * Round-robin pairings already exist.
+             * We only activate the next part of the schedule.
+             */
+            matches =
                     matchRepository
                             .findByTournamentAndRoundNumberOrderByBoardNumber(
                                     tournament,
                                     nextRoundNumber
                             );
 
-            if (nextRoundMatches.isEmpty()) {
+            if (matches.isEmpty()) {
+
                 throw new IllegalStateException(
                         "There are no more rounds."
                 );
             }
-
-            tournament.setCurrentRound(
-                    nextRoundNumber
-            );
-
-            resolveAutomaticResults(
-                    tournament,
-                    nextRoundMatches
-            );
-
-            return nextRoundMatches;
         }
 
-        throw new UnsupportedOperationException(
-                "Next-round handling is not implemented for this tournament format yet."
+        // =========================================================
+        // SINGLE ELIMINATION / SWISS
+        // =========================================================
+
+        else {
+
+            List<TournamentParticipant> participants =
+                    participantRepository
+                            .findByTournament(
+                                    tournament
+                            );
+
+            /*
+             * Swiss needs the COMPLETE history:
+             * - rematches
+             * - previous colors
+             * - previous BYEs
+             *
+             * Single elimination will internally select
+             * only the previous round from this history.
+             */
+            List<TournamentMatch> matchHistory =
+                    matchRepository
+                            .findByTournament(
+                                    tournament
+                            );
+
+            matches =
+                    pairingService.createNextRound(
+                            tournament,
+                            participants,
+                            matchHistory,
+                            nextRoundNumber
+                    );
+
+            matchRepository.saveAll(
+                    matches
+            );
+        }
+
+        // =========================================================
+        // ACTIVATE ROUND
+        // =========================================================
+
+        tournament.setCurrentRound(
+                nextRoundNumber
         );
+
+        /*
+         * Resolve only automatic results belonging
+         * to the newly started round.
+         *
+         * Examples:
+         * - BYE
+         * - already FORFEITED participant
+         */
+        resolveAutomaticResults(
+                tournament,
+                matches
+        );
+
+        return matches;
     }
 
     // =========================================================
@@ -700,6 +790,41 @@ public class TournamentService {
             throw new IllegalStateException(
                     "The current round must be completed first."
             );
+        }
+    }
+
+    private void validateTournamentCanStart(
+            Tournament tournament,
+            List<TournamentParticipant> participants
+    ) {
+
+        if (participants.size() < 2) {
+            throw new IllegalStateException(
+                    "At least two active participants are required."
+            );
+        }
+
+        if (tournament.getFormat()
+                == TournamentFormat.SWISS) {
+
+            Integer numberOfRounds =
+                    tournament.getNumberOfRounds();
+
+            if (numberOfRounds == null
+                    || numberOfRounds < 1) {
+
+                throw new IllegalStateException(
+                        "Swiss tournament must have a valid number of rounds."
+                );
+            }
+
+            if (numberOfRounds
+                    >= participants.size()) {
+
+                throw new IllegalStateException(
+                        "A Swiss tournament must have fewer rounds than active participants."
+                );
+            }
         }
     }
 }

@@ -58,6 +58,9 @@ public class Tournament extends BaseEntity {
     private List<TieBreakType> tieBreaks;
 
     @Column(nullable = false)
+    private Integer numberOfRounds;
+
+    @Column(nullable = false)
     private Integer currentRound;
 
     @Column(nullable = false, updatable = false)

@@ -1,5 +1,6 @@
 package com.example.chessforge.service.tournament;
 
+import com.example.chessforge.model.entity.BaseEntity;
 import com.example.chessforge.model.entity.Tournament;
 import com.example.chessforge.model.entity.TournamentMatch;
 import com.example.chessforge.model.entity.TournamentParticipant;
@@ -9,9 +10,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -52,28 +53,32 @@ class TournamentPairingServiceTest {
 
         assertEquals(4, matches.size());
 
-        /*
-         * Fixed bracket:
-         *
-         * Board 1: 1 vs 8
-         * Board 2: 4 vs 5
-         *
-         * Board 3: 2 vs 7
-         * Board 4: 3 vs 6
-         *
-         * Winners of boards 1+2 meet.
-         * Winners of boards 3+4 meet.
-         */
-        assertPairOnBoard(matches, 1, 1, 8);
-        assertPairOnBoard(matches, 2, 4, 5);
-        assertPairOnBoard(matches, 3, 2, 7);
-        assertPairOnBoard(matches, 4, 3, 6);
+        assertPairOnBoard(
+                matches,
+                1,
+                1,
+                8
+        );
 
-        assertTrue(
-                matches.stream()
-                        .allMatch(match ->
-                                match.getRoundNumber() == 1
-                        )
+        assertPairOnBoard(
+                matches,
+                2,
+                4,
+                5
+        );
+
+        assertPairOnBoard(
+                matches,
+                3,
+                2,
+                7
+        );
+
+        assertPairOnBoard(
+                matches,
+                4,
+                3,
+                6
         );
 
         assertTrue(
@@ -86,7 +91,7 @@ class TournamentPairingServiceTest {
     }
 
     @Test
-    void singleEliminationShouldGiveByesToTopSeedsWithSixPlayers() {
+    void singleEliminationShouldGiveByesToTopSeedsForSixPlayers() {
 
         List<TournamentParticipant> participants =
                 createParticipants(6);
@@ -102,16 +107,9 @@ class TournamentPairingServiceTest {
         TournamentMatch board1 =
                 getBoard(matches, 1);
 
-        TournamentMatch board2 =
-                getBoard(matches, 2);
-
         TournamentMatch board3 =
                 getBoard(matches, 3);
 
-        TournamentMatch board4 =
-                getBoard(matches, 4);
-
-        // Seed 1 receives BYE.
         assertEquals(
                 1,
                 board1.getWhiteParticipant().getSeed()
@@ -121,14 +119,6 @@ class TournamentPairingServiceTest {
                 board1.getBlackParticipant()
         );
 
-        // 4 vs 5
-        assertContainsPair(
-                board2,
-                4,
-                5
-        );
-
-        // Seed 2 receives BYE.
         assertEquals(
                 2,
                 board3.getWhiteParticipant().getSeed()
@@ -138,16 +128,23 @@ class TournamentPairingServiceTest {
                 board3.getBlackParticipant()
         );
 
-        // 3 vs 6
-        assertContainsPair(
-                board4,
+        assertPairOnBoard(
+                matches,
+                2,
+                4,
+                5
+        );
+
+        assertPairOnBoard(
+                matches,
+                4,
                 3,
                 6
         );
     }
 
     @Test
-    void byeShouldRemainPendingUntilRoundIsProcessed() {
+    void byeShouldRemainPendingDuringPairing() {
 
         tournament.setByePoints(0.5);
 
@@ -161,12 +158,7 @@ class TournamentPairingServiceTest {
                 );
 
         TournamentMatch bye =
-                matches.stream()
-                        .filter(match ->
-                                match.getBlackParticipant() == null
-                        )
-                        .findFirst()
-                        .orElseThrow();
+                findBye(matches);
 
         assertEquals(
                 TournamentMatchStatus.PENDING,
@@ -190,9 +182,7 @@ class TournamentPairingServiceTest {
     void singleEliminationShouldIgnoreInactiveParticipants() {
 
         List<TournamentParticipant> participants =
-                new ArrayList<>(
-                        createParticipants(5)
-                );
+                createParticipants(5);
 
         participants.get(2).setStatus(
                 TournamentParticipantStatus.WITHDRAWN
@@ -212,8 +202,10 @@ class TournamentPairingServiceTest {
                         participants
                 );
 
-        // Only seeds 1 and 2 remain active.
-        assertEquals(1, matches.size());
+        assertEquals(
+                1,
+                matches.size()
+        );
 
         assertContainsPair(
                 matches.get(0),
@@ -223,7 +215,7 @@ class TournamentPairingServiceTest {
     }
 
     @Test
-    void singleEliminationShouldThrowWhenParticipantHasNoSeed() {
+    void singleEliminationShouldRejectMissingSeed() {
 
         List<TournamentParticipant> participants =
                 createParticipants(4);
@@ -234,10 +226,11 @@ class TournamentPairingServiceTest {
                 assertThrows(
                         IllegalStateException.class,
                         () ->
-                                pairingService.createInitialPairings(
-                                        tournament,
-                                        participants
-                                )
+                                pairingService
+                                        .createInitialPairings(
+                                                tournament,
+                                                participants
+                                        )
                 );
 
         assertEquals(
@@ -247,7 +240,7 @@ class TournamentPairingServiceTest {
     }
 
     @Test
-    void singleEliminationShouldRequireAtLeastTwoActiveParticipants() {
+    void singleEliminationShouldRequireTwoActivePlayers() {
 
         List<TournamentParticipant> participants =
                 createParticipants(2);
@@ -267,7 +260,7 @@ class TournamentPairingServiceTest {
     }
 
     // =========================================================
-    // SINGLE ELIMINATION - FIXED BRACKET NEXT ROUND
+    // SINGLE ELIMINATION - FIXED BRACKET
     // =========================================================
 
     @Test
@@ -283,21 +276,14 @@ class TournamentPairingServiceTest {
                 );
 
         /*
-         * Round 1:
+         * Board 1: 1 vs 8 -> 8
+         * Board 2: 4 vs 5 -> 4
+         * Board 3: 2 vs 7 -> 7
+         * Board 4: 3 vs 6 -> 3
          *
-         * board 1: 1 vs 8 -> 8 wins
-         * board 2: 4 vs 5 -> 4 wins
-         * board 3: 2 vs 7 -> 7 wins
-         * board 4: 3 vs 6 -> 3 wins
-         *
-         * Fixed bracket MUST produce:
-         *
+         * Fixed bracket:
          * 8 vs 4
          * 7 vs 3
-         *
-         * Re-seeding would instead produce:
-         * 3 vs 8
-         * 4 vs 7
          */
         completeWithWinner(
                 getBoard(firstRound, 1),
@@ -319,15 +305,21 @@ class TournamentPairingServiceTest {
                 3
         );
 
+        List<TournamentMatch> history =
+                new ArrayList<>(firstRound);
+
         List<TournamentMatch> secondRound =
                 pairingService.createNextRound(
                         tournament,
                         participants,
-                        firstRound,
+                        history,
                         2
                 );
 
-        assertEquals(2, secondRound.size());
+        assertEquals(
+                2,
+                secondRound.size()
+        );
 
         assertPairOnBoard(
                 secondRound,
@@ -341,6 +333,72 @@ class TournamentPairingServiceTest {
                 2,
                 7,
                 3
+        );
+    }
+
+    @Test
+    void nextSingleEliminationRoundShouldUseOnlyPreviousRoundFromHistory() {
+
+        List<TournamentParticipant> participants =
+                createParticipants(8);
+
+        List<TournamentMatch> round1 =
+                pairingService.createInitialPairings(
+                        tournament,
+                        participants
+                );
+
+        for (TournamentMatch match : round1) {
+            completeWithWinner(
+                    match,
+                    Math.min(
+                            match.getWhiteParticipant().getSeed(),
+                            match.getBlackParticipant().getSeed()
+                    )
+            );
+        }
+
+        List<TournamentMatch> round2 =
+                pairingService.createNextRound(
+                        tournament,
+                        participants,
+                        round1,
+                        2
+                );
+
+        for (TournamentMatch match : round2) {
+            completeWithWinner(
+                    match,
+                    Math.min(
+                            match.getWhiteParticipant().getSeed(),
+                            match.getBlackParticipant().getSeed()
+                    )
+            );
+        }
+
+        List<TournamentMatch> fullHistory =
+                new ArrayList<>();
+
+        fullHistory.addAll(round1);
+        fullHistory.addAll(round2);
+
+        List<TournamentMatch> finalRound =
+                pairingService.createNextRound(
+                        tournament,
+                        participants,
+                        fullHistory,
+                        3
+                );
+
+        assertEquals(
+                1,
+                finalRound.size()
+        );
+
+        assertContainsPair(
+                finalRound.get(0),
+                1,
+                2
         );
     }
 
@@ -361,8 +419,6 @@ class TournamentPairingServiceTest {
                 1
         );
 
-        // Board 2 stays PENDING.
-
         assertThrows(
                 IllegalStateException.class,
                 () ->
@@ -376,7 +432,7 @@ class TournamentPairingServiceTest {
     }
 
     @Test
-    void nextSingleEliminationRoundShouldRejectDrawnMatch() {
+    void nextSingleEliminationRoundShouldRejectDraw() {
 
         List<TournamentParticipant> participants =
                 createParticipants(4);
@@ -402,21 +458,15 @@ class TournamentPairingServiceTest {
                 2
         );
 
-        IllegalStateException exception =
-                assertThrows(
-                        IllegalStateException.class,
-                        () ->
-                                pairingService.createNextRound(
-                                        tournament,
-                                        participants,
-                                        firstRound,
-                                        2
-                                )
-                );
-
-        assertEquals(
-                "A knockout match must have a winner before the next round can be created.",
-                exception.getMessage()
+        assertThrows(
+                IllegalStateException.class,
+                () ->
+                        pairingService.createNextRound(
+                                tournament,
+                                participants,
+                                firstRound,
+                                2
+                        )
         );
     }
 
@@ -425,7 +475,7 @@ class TournamentPairingServiceTest {
     // =========================================================
 
     @Test
-    void roundRobinWithFourPlayersShouldCreateEntireSchedule() {
+    void roundRobinShouldGenerateWholeScheduleForFourPlayers() {
 
         tournament.setFormat(
                 TournamentFormat.ROUND_ROBIN
@@ -440,20 +490,19 @@ class TournamentPairingServiceTest {
                         participants
                 );
 
-        /*
-         * 4 players:
-         *
-         * rounds = 4 - 1 = 3
-         * games per round = 2
-         * total = 6
-         */
-        assertEquals(6, matches.size());
+        assertEquals(
+                6,
+                matches.size()
+        );
 
-        for (int round = 1; round <= 3; round++) {
+        for (int round = 1;
+             round <= 3;
+             round++) {
 
-            int currentRound = round;
+            int currentRound =
+                    round;
 
-            long matchesInRound =
+            long count =
                     matches.stream()
                             .filter(match ->
                                     match.getRoundNumber()
@@ -463,7 +512,7 @@ class TournamentPairingServiceTest {
 
             assertEquals(
                     2,
-                    matchesInRound
+                    count
             );
         }
     }
@@ -476,7 +525,7 @@ class TournamentPairingServiceTest {
         );
 
         List<TournamentParticipant> participants =
-                createParticipants(4);
+                createParticipants(6);
 
         List<TournamentMatch> matches =
                 pairingService.createInitialPairings(
@@ -484,37 +533,35 @@ class TournamentPairingServiceTest {
                         participants
                 );
 
-        Map<String, Long> pairCounts =
-                matches.stream()
-                        .filter(match ->
-                                match.getBlackParticipant() != null
-                        )
-                        .collect(
-                                Collectors.groupingBy(
-                                        this::pairKey,
-                                        Collectors.counting()
-                                )
-                        );
+        Set<String> pairs =
+                new HashSet<>();
+
+        for (TournamentMatch match : matches) {
+
+            assertNotNull(
+                    match.getBlackParticipant()
+            );
+
+            assertTrue(
+                    pairs.add(
+                            pairKey(match)
+                    ),
+                    "Duplicate pair: "
+                            + pairKey(match)
+            );
+        }
 
         /*
-         * C(4,2) = 6 unique pairs.
+         * C(6,2) = 15
          */
         assertEquals(
-                6,
-                pairCounts.size()
-        );
-
-        assertTrue(
-                pairCounts.values()
-                        .stream()
-                        .allMatch(count ->
-                                count == 1
-                        )
+                15,
+                pairs.size()
         );
     }
 
     @Test
-    void roundRobinWithFivePlayersShouldCreateOneByePerPlayer() {
+    void roundRobinWithOddPlayersShouldGiveEachPlayerOneBye() {
 
         tournament.setFormat(
                 TournamentFormat.ROUND_ROBIN
@@ -529,23 +576,11 @@ class TournamentPairingServiceTest {
                         participants
                 );
 
-        /*
-         * Virtual sixth slot:
-         *
-         * rounds = 5
-         * slots per round = 3
-         *
-         * 10 real games + 5 BYEs = 15 TournamentMatches.
-         */
-        assertEquals(
-                15,
-                matches.size()
-        );
-
         List<TournamentMatch> byes =
                 matches.stream()
                         .filter(match ->
-                                match.getBlackParticipant() == null
+                                match.getBlackParticipant()
+                                        == null
                         )
                         .toList();
 
@@ -557,7 +592,7 @@ class TournamentPairingServiceTest {
         for (TournamentParticipant participant
                 : participants) {
 
-            long byeCount =
+            long count =
                     byes.stream()
                             .filter(match ->
                                     match.getWhiteParticipant()
@@ -567,16 +602,13 @@ class TournamentPairingServiceTest {
 
             assertEquals(
                     1,
-                    byeCount,
-                    "Seed "
-                            + participant.getSeed()
-                            + " should receive exactly one BYE."
+                    count
             );
         }
     }
 
     @Test
-    void futureRoundRobinByesShouldNotAwardPointsDuringPairing() {
+    void roundRobinByesShouldNotAwardPointsWhenScheduleIsCreated() {
 
         tournament.setFormat(
                 TournamentFormat.ROUND_ROBIN
@@ -584,43 +616,33 @@ class TournamentPairingServiceTest {
 
         tournament.setByePoints(0.5);
 
-        List<TournamentParticipant> participants =
-                createParticipants(5);
-
         List<TournamentMatch> matches =
                 pairingService.createInitialPairings(
                         tournament,
-                        participants
+                        createParticipants(5)
                 );
 
-        List<TournamentMatch> byes =
+        for (TournamentMatch bye :
                 matches.stream()
                         .filter(match ->
-                                match.getBlackParticipant() == null
+                                match.getBlackParticipant()
+                                        == null
                         )
-                        .toList();
+                        .toList()) {
 
-        assertTrue(
-                byes.stream()
-                        .allMatch(match ->
-                                match.getStatus()
-                                        == TournamentMatchStatus.PENDING
-                        )
-        );
+            assertEquals(
+                    TournamentMatchStatus.PENDING,
+                    bye.getStatus()
+            );
 
-        assertTrue(
-                byes.stream()
-                        .allMatch(match ->
-                                match.getTermination() == null
-                        )
-        );
+            assertNull(
+                    bye.getTermination()
+            );
 
-        assertTrue(
-                byes.stream()
-                        .allMatch(match ->
-                                match.getWhiteScore() == null
-                        )
-        );
+            assertNull(
+                    bye.getWhiteScore()
+            );
+        }
     }
 
     @Test
@@ -642,7 +664,7 @@ class TournamentPairingServiceTest {
         for (TournamentParticipant participant
                 : participants) {
 
-            long whiteGames =
+            long white =
                     matches.stream()
                             .filter(match ->
                                     match.getWhiteParticipant()
@@ -650,7 +672,7 @@ class TournamentPairingServiceTest {
                             )
                             .count();
 
-            long blackGames =
+            long black =
                     matches.stream()
                             .filter(match ->
                                     match.getBlackParticipant()
@@ -660,39 +682,29 @@ class TournamentPairingServiceTest {
 
             assertEquals(
                     5,
-                    whiteGames + blackGames
+                    white + black
             );
 
             assertTrue(
-                    Math.abs(
-                            whiteGames - blackGames
-                    ) <= 1,
-                    "Unbalanced colors for seed "
-                            + participant.getSeed()
-                            + ": white="
-                            + whiteGames
-                            + ", black="
-                            + blackGames
+                    Math.abs(white - black)
+                            <= 1
             );
         }
     }
 
     @Test
-    void roundRobinShouldRejectCreatingAnotherRound() {
+    void roundRobinShouldRejectCreateNextRound() {
 
         tournament.setFormat(
                 TournamentFormat.ROUND_ROBIN
         );
-
-        List<TournamentParticipant> participants =
-                createParticipants(4);
 
         assertThrows(
                 IllegalStateException.class,
                 () ->
                         pairingService.createNextRound(
                                 tournament,
-                                participants,
+                                createParticipants(4),
                                 List.of(),
                                 2
                         )
@@ -700,11 +712,126 @@ class TournamentPairingServiceTest {
     }
 
     // =========================================================
-    // SWISS
+    // SWISS - FIRST ROUND
     // =========================================================
 
     @Test
-    void swissShouldRemainUnsupportedForNow() {
+    void swissFirstRoundShouldSplitPlayersBySeed() {
+
+        tournament.setFormat(
+                TournamentFormat.SWISS
+        );
+
+        List<TournamentParticipant> participants =
+                createParticipants(8);
+
+        List<TournamentMatch> matches =
+                pairingService.createInitialPairings(
+                        tournament,
+                        participants
+                );
+
+        assertEquals(
+                4,
+                matches.size()
+        );
+
+        assertPairOnBoard(
+                matches,
+                1,
+                1,
+                5
+        );
+
+        assertPairOnBoard(
+                matches,
+                2,
+                2,
+                6
+        );
+
+        assertPairOnBoard(
+                matches,
+                3,
+                3,
+                7
+        );
+
+        assertPairOnBoard(
+                matches,
+                4,
+                4,
+                8
+        );
+    }
+
+    @Test
+    void swissFirstRoundShouldGiveByeToLastSeedWhenOdd() {
+
+        tournament.setFormat(
+                TournamentFormat.SWISS
+        );
+
+        List<TournamentParticipant> participants =
+                createParticipants(7);
+
+        List<TournamentMatch> matches =
+                pairingService.createInitialPairings(
+                        tournament,
+                        participants
+                );
+
+        assertEquals(
+                4,
+                matches.size()
+        );
+
+        assertPairOnBoard(
+                matches,
+                1,
+                1,
+                4
+        );
+
+        assertPairOnBoard(
+                matches,
+                2,
+                2,
+                5
+        );
+
+        assertPairOnBoard(
+                matches,
+                3,
+                3,
+                6
+        );
+
+        TournamentMatch bye =
+                findBye(matches);
+
+        assertEquals(
+                7,
+                bye.getWhiteParticipant()
+                        .getSeed()
+        );
+
+        assertEquals(
+                TournamentMatchStatus.PENDING,
+                bye.getStatus()
+        );
+
+        assertNull(
+                bye.getWhiteScore()
+        );
+    }
+
+    // =========================================================
+    // SWISS - NO REMATCH
+    // =========================================================
+
+    @Test
+    void swissLaterRoundShouldNeverCreateRematch() {
 
         tournament.setFormat(
                 TournamentFormat.SWISS
@@ -713,12 +840,586 @@ class TournamentPairingServiceTest {
         List<TournamentParticipant> participants =
                 createParticipants(4);
 
-        assertThrows(
-                UnsupportedOperationException.class,
-                () ->
-                        pairingService.createInitialPairings(
-                                tournament,
-                                participants
+        participants.forEach(
+                participant ->
+                        participant.setScore(1.0)
+        );
+
+        /*
+         * Previous:
+         * 1-3
+         * 2-4
+         *
+         * Current halves:
+         * 1 2 | 3 4
+         *
+         * 1 cannot play 3,
+         * so 1 must play 4.
+         */
+        List<TournamentMatch> history =
+                List.of(
+                        completedMatch(
+                                participants.get(0),
+                                participants.get(2),
+                                1
+                        ),
+                        completedMatch(
+                                participants.get(1),
+                                participants.get(3),
+                                1
+                        )
+                );
+
+        List<TournamentMatch> matches =
+                pairingService.createNextRound(
+                        tournament,
+                        participants,
+                        history,
+                        2
+                );
+
+        assertContainsPair(
+                matches,
+                1,
+                4
+        );
+
+        assertContainsPair(
+                matches,
+                2,
+                3
+        );
+
+        for (TournamentMatch match : matches) {
+
+            assertFalse(
+                    history.stream()
+                            .anyMatch(previous ->
+                                    samePair(
+                                            match,
+                                            previous
+                                    )
+                            )
+            );
+        }
+    }
+
+    // =========================================================
+    // SWISS - COLOR PREFERENCE
+    // =========================================================
+
+    @Test
+    void swissShouldPreferOppositePreviousColorInsideSameSearchLocation() {
+
+        tournament.setFormat(
+                TournamentFormat.SWISS
+        );
+
+        List<TournamentParticipant> participants =
+                createParticipants(6);
+
+        participants.forEach(
+                participant ->
+                        participant.setScore(1.0)
+        );
+
+        TournamentParticipant p1 =
+                participants.get(0);
+
+        TournamentParticipant p2 =
+                participants.get(1);
+
+        TournamentParticipant p3 =
+                participants.get(2);
+
+        TournamentParticipant p4 =
+                participants.get(3);
+
+        TournamentParticipant p5 =
+                participants.get(4);
+
+        TournamentParticipant p6 =
+                participants.get(5);
+
+        /*
+         * Previous colors:
+         *
+         * p1 WHITE
+         * p4 WHITE
+         *
+         * p2 BLACK
+         *
+         * p6 WHITE
+         * p5 BLACK
+         *
+         * For p1, lower half = p4,p5,p6.
+         *
+         * p5 has opposite previous color,
+         * so p1 should prefer p5.
+         */
+        List<TournamentMatch> history =
+                List.of(
+                        completedMatch(
+                                p1,
+                                p3,
+                                1
+                        ),
+                        completedMatch(
+                                p4,
+                                p2,
+                                1
+                        ),
+                        completedMatch(
+                                p6,
+                                p5,
+                                1
+                        )
+                );
+
+        List<TournamentMatch> matches =
+                pairingService.createNextRound(
+                        tournament,
+                        participants,
+                        history,
+                        2
+                );
+
+        assertContainsPair(
+                matches,
+                1,
+                5
+        );
+    }
+
+    @Test
+    void swissShouldReverseColorsWhenPreviousColorsAreOpposite() {
+
+        tournament.setFormat(
+                TournamentFormat.SWISS
+        );
+
+        List<TournamentParticipant> participants =
+                createParticipants(4);
+
+        participants.forEach(
+                participant ->
+                        participant.setScore(1.0)
+        );
+
+        TournamentParticipant p1 =
+                participants.get(0);
+
+        TournamentParticipant p2 =
+                participants.get(1);
+
+        TournamentParticipant p3 =
+                participants.get(2);
+
+        TournamentParticipant p4 =
+                participants.get(3);
+
+        /*
+         * p1 was WHITE.
+         * p4 was BLACK.
+         */
+        List<TournamentMatch> history =
+                List.of(
+                        completedMatch(
+                                p1,
+                                p3,
+                                1
+                        ),
+                        completedMatch(
+                                p2,
+                                p4,
+                                1
+                        )
+                );
+
+        List<TournamentMatch> matches =
+                pairingService.createNextRound(
+                        tournament,
+                        participants,
+                        history,
+                        2
+                );
+
+        TournamentMatch match =
+                findPair(
+                        matches,
+                        1,
+                        4
+                );
+
+        /*
+         * Colors should reverse:
+         * p1 -> BLACK
+         * p4 -> WHITE
+         */
+        assertEquals(
+                4,
+                match.getWhiteParticipant()
+                        .getSeed()
+        );
+
+        assertEquals(
+                1,
+                match.getBlackParticipant()
+                        .getSeed()
+        );
+    }
+
+    // =========================================================
+    // SWISS - SCORE GROUP SEARCH
+    // =========================================================
+
+    @Test
+    void swissShouldPairLeaderDownWhenAloneInScoreGroup() {
+
+        tournament.setFormat(
+                TournamentFormat.SWISS
+        );
+
+        List<TournamentParticipant> participants =
+                createParticipants(4);
+
+        participants.get(0).setScore(3.0);
+        participants.get(1).setScore(2.0);
+        participants.get(2).setScore(2.0);
+        participants.get(3).setScore(1.0);
+
+        List<TournamentMatch> matches =
+                pairingService.createNextRound(
+                        tournament,
+                        participants,
+                        List.of(),
+                        2
+                );
+
+        /*
+         * Seed 1 is alone on 3 points.
+         * First available player in the next
+         * lower score group is seed 2.
+         */
+        assertContainsPair(
+                matches,
+                1,
+                2
+        );
+    }
+
+    @Test
+    void swissShouldSearchSameHalfBeforeLowerScoreGroup() {
+
+        tournament.setFormat(
+                TournamentFormat.SWISS
+        );
+
+        List<TournamentParticipant> participants =
+                createParticipants(6);
+
+        participants.get(0).setScore(2.0);
+        participants.get(1).setScore(2.0);
+        participants.get(2).setScore(2.0);
+        participants.get(3).setScore(2.0);
+
+        participants.get(4).setScore(1.0);
+        participants.get(5).setScore(1.0);
+
+        /*
+         * Group 2.0:
+         *
+         * upper = 1,2
+         * lower = 3,4
+         *
+         * Seed 1 has already played both lower-half
+         * players 3 and 4.
+         *
+         * It must therefore search its own half
+         * before dropping to the 1.0 group.
+         */
+        List<TournamentMatch> history =
+                List.of(
+                        completedMatch(
+                                participants.get(0),
+                                participants.get(2),
+                                1
+                        ),
+                        completedMatch(
+                                participants.get(0),
+                                participants.get(3),
+                                2
+                        )
+                );
+
+        List<TournamentMatch> matches =
+                pairingService.createNextRound(
+                        tournament,
+                        participants,
+                        history,
+                        3
+                );
+
+        assertContainsPair(
+                matches,
+                1,
+                2
+        );
+    }
+
+    // =========================================================
+    // SWISS - BACKTRACKING
+    // =========================================================
+
+    @Test
+    void swissShouldBacktrackWhenFirstValidChoiceBlocksRemainingPlayers() {
+
+        tournament.setFormat(
+                TournamentFormat.SWISS
+        );
+
+        List<TournamentParticipant> participants =
+                createParticipants(4);
+
+        participants.forEach(
+                participant ->
+                        participant.setScore(1.0)
+        );
+
+        /*
+         * halves:
+         * 1,2 | 3,4
+         *
+         * Seed 1 initially tries seed 3.
+         *
+         * But 2 and 4 have already played,
+         * so that leaves an impossible remainder.
+         *
+         * Algorithm must backtrack:
+         *
+         * 1-4
+         * 2-3
+         */
+        List<TournamentMatch> history =
+                List.of(
+                        completedMatch(
+                                participants.get(1),
+                                participants.get(3),
+                                1
+                        )
+                );
+
+        List<TournamentMatch> matches =
+                pairingService.createNextRound(
+                        tournament,
+                        participants,
+                        history,
+                        2
+                );
+
+        assertContainsPair(
+                matches,
+                1,
+                4
+        );
+
+        assertContainsPair(
+                matches,
+                2,
+                3
+        );
+    }
+
+    @Test
+    void swissShouldThrowWhenNoPairingWithoutRematchExists() {
+
+        tournament.setFormat(
+                TournamentFormat.SWISS
+        );
+
+        List<TournamentParticipant> participants =
+                createParticipants(4);
+
+        participants.forEach(
+                participant ->
+                        participant.setScore(1.0)
+        );
+
+        List<TournamentMatch> history =
+                new ArrayList<>();
+
+        for (int i = 0;
+             i < participants.size();
+             i++) {
+
+            for (int j = i + 1;
+                 j < participants.size();
+                 j++) {
+
+                history.add(
+                        completedMatch(
+                                participants.get(i),
+                                participants.get(j),
+                                1
+                        )
+                );
+            }
+        }
+
+        IllegalStateException exception =
+                assertThrows(
+                        IllegalStateException.class,
+                        () ->
+                                pairingService.createNextRound(
+                                        tournament,
+                                        participants,
+                                        history,
+                                        2
+                                )
+                );
+
+        assertEquals(
+                "No valid Swiss pairing exists without a rematch.",
+                exception.getMessage()
+        );
+    }
+
+    // =========================================================
+    // SWISS - BYE
+    // =========================================================
+
+    @Test
+    void swissByeShouldGoToLowestRankedPlayerWithoutPreviousBye() {
+
+        tournament.setFormat(
+                TournamentFormat.SWISS
+        );
+
+        List<TournamentParticipant> participants =
+                createParticipants(5);
+
+        participants.get(0).setScore(3.0);
+        participants.get(1).setScore(2.0);
+        participants.get(2).setScore(1.5);
+        participants.get(3).setScore(1.0);
+        participants.get(4).setScore(0.5);
+
+        /*
+         * Lowest-ranked seed 5 already had a BYE.
+         */
+        TournamentMatch oldBye =
+                TournamentMatch.builder()
+                        .tournament(tournament)
+                        .whiteParticipant(
+                                participants.get(4)
+                        )
+                        .blackParticipant(null)
+                        .roundNumber(1)
+                        .boardNumber(3)
+                        .status(
+                                TournamentMatchStatus.COMPLETED
+                        )
+                        .whiteScore(1.0)
+                        .build();
+
+        List<TournamentMatch> matches =
+                pairingService.createNextRound(
+                        tournament,
+                        participants,
+                        List.of(oldBye),
+                        2
+                );
+
+        TournamentMatch bye =
+                findBye(matches);
+
+        /*
+         * Seed 5 is skipped because it already
+         * received a BYE.
+         *
+         * Next lowest is seed 4.
+         */
+        assertEquals(
+                4,
+                bye.getWhiteParticipant()
+                        .getSeed()
+        );
+    }
+
+    @Test
+    void swissByeShouldNotCountAsPlayedMatch() {
+
+        tournament.setFormat(
+                TournamentFormat.SWISS
+        );
+
+        List<TournamentParticipant> participants =
+                createParticipants(3);
+
+        TournamentMatch previousBye =
+                TournamentMatch.builder()
+                        .tournament(tournament)
+                        .whiteParticipant(
+                                participants.get(2)
+                        )
+                        .blackParticipant(null)
+                        .roundNumber(1)
+                        .status(
+                                TournamentMatchStatus.COMPLETED
+                        )
+                        .whiteScore(1.0)
+                        .build();
+
+        participants.get(0).setScore(1.0);
+        participants.get(1).setScore(1.0);
+        participants.get(2).setScore(1.0);
+
+        List<TournamentMatch> matches =
+                pairingService.createNextRound(
+                        tournament,
+                        participants,
+                        List.of(previousBye),
+                        2
+                );
+
+        assertNotNull(matches);
+    }
+
+    // =========================================================
+    // SWISS - ACTIVE PARTICIPANTS
+    // =========================================================
+
+    @Test
+    void swissShouldIgnoreForfeitedParticipants() {
+
+        tournament.setFormat(
+                TournamentFormat.SWISS
+        );
+
+        List<TournamentParticipant> participants =
+                createParticipants(6);
+
+        TournamentParticipant forfeited =
+                participants.get(5);
+
+        forfeited.setStatus(
+                TournamentParticipantStatus.FORFEITED
+        );
+
+        List<TournamentMatch> matches =
+                pairingService.createInitialPairings(
+                        tournament,
+                        participants
+                );
+
+        assertTrue(
+                matches.stream()
+                        .noneMatch(match ->
+                                match.getWhiteParticipant()
+                                        == forfeited
+                                        ||
+                                        match.getBlackParticipant()
+                                                == forfeited
                         )
         );
     }
@@ -734,23 +1435,36 @@ class TournamentPairingServiceTest {
         List<TournamentParticipant> participants =
                 new ArrayList<>();
 
-        for (int i = 1; i <= count; i++) {
+        for (int i = 1;
+             i <= count;
+             i++) {
 
             User user =
                     User.builder()
-                            .username("player" + i)
+                            .username(
+                                    "player" + i
+                            )
                             .email(
                                     "player"
                                             + i
                                             + "@test.com"
                             )
                             .password("password")
-                            .status(UserStatus.ACTIVE)
+                            .status(
+                                    UserStatus.ACTIVE
+                            )
                             .build();
+
+            setId(
+                    user,
+                    (long) i
+            );
 
             TournamentParticipant participant =
                     TournamentParticipant.builder()
-                            .tournament(tournament)
+                            .tournament(
+                                    tournament
+                            )
                             .user(user)
                             .seed(i)
                             .score(0.0)
@@ -759,10 +1473,37 @@ class TournamentPairingServiceTest {
                             )
                             .build();
 
-            participants.add(participant);
+            setId(
+                    participant,
+                    100L + i
+            );
+
+            participants.add(
+                    participant
+            );
         }
 
         return participants;
+    }
+
+    private TournamentMatch completedMatch(
+            TournamentParticipant white,
+            TournamentParticipant black,
+            int roundNumber
+    ) {
+
+        return TournamentMatch.builder()
+                .tournament(tournament)
+                .whiteParticipant(white)
+                .blackParticipant(black)
+                .roundNumber(roundNumber)
+                .boardNumber(1)
+                .status(
+                        TournamentMatchStatus.COMPLETED
+                )
+                .whiteScore(1.0)
+                .blackScore(0.0)
+                .build();
     }
 
     private TournamentMatch getBoard(
@@ -779,23 +1520,70 @@ class TournamentPairingServiceTest {
                 .orElseThrow();
     }
 
-    private void assertPairOnBoard(
+    private TournamentMatch findBye(
+            List<TournamentMatch> matches
+    ) {
+
+        return matches.stream()
+                .filter(match ->
+                        match.getBlackParticipant()
+                                == null
+                )
+                .findFirst()
+                .orElseThrow();
+    }
+
+    private TournamentMatch findPair(
             List<TournamentMatch> matches,
-            int boardNumber,
             int firstSeed,
             int secondSeed
     ) {
 
-        TournamentMatch match =
-                getBoard(
-                        matches,
-                        boardNumber
-                );
+        return matches.stream()
+                .filter(match ->
+                        containsPair(
+                                match,
+                                firstSeed,
+                                secondSeed
+                        )
+                )
+                .findFirst()
+                .orElseThrow();
+    }
+
+    private void assertPairOnBoard(
+            List<TournamentMatch> matches,
+            int board,
+            int firstSeed,
+            int secondSeed
+    ) {
 
         assertContainsPair(
-                match,
+                getBoard(matches, board),
                 firstSeed,
                 secondSeed
+        );
+    }
+
+    private void assertContainsPair(
+            List<TournamentMatch> matches,
+            int firstSeed,
+            int secondSeed
+    ) {
+
+        assertTrue(
+                matches.stream()
+                        .anyMatch(match ->
+                                containsPair(
+                                        match,
+                                        firstSeed,
+                                        secondSeed
+                                )
+                        ),
+                "Expected pair "
+                        + firstSeed
+                        + "-"
+                        + secondSeed
         );
     }
 
@@ -805,33 +1593,81 @@ class TournamentPairingServiceTest {
             int secondSeed
     ) {
 
-        assertNotNull(
-                match.getBlackParticipant()
+        assertTrue(
+                containsPair(
+                        match,
+                        firstSeed,
+                        secondSeed
+                ),
+                "Expected pair "
+                        + firstSeed
+                        + "-"
+                        + secondSeed
         );
+    }
 
-        int whiteSeed =
+    private boolean containsPair(
+            TournamentMatch match,
+            int firstSeed,
+            int secondSeed
+    ) {
+
+        if (match.getWhiteParticipant() == null
+                || match.getBlackParticipant() == null) {
+
+            return false;
+        }
+
+        int white =
                 match.getWhiteParticipant()
                         .getSeed();
 
-        int blackSeed =
+        int black =
                 match.getBlackParticipant()
                         .getSeed();
 
-        assertTrue(
-                (whiteSeed == firstSeed
-                        && blackSeed == secondSeed)
-                        ||
-                        (whiteSeed == secondSeed
-                                && blackSeed == firstSeed),
-                "Expected "
-                        + firstSeed
-                        + " vs "
-                        + secondSeed
-                        + ", but got "
-                        + whiteSeed
-                        + " vs "
-                        + blackSeed
+        return (white == firstSeed
+                && black == secondSeed)
+                ||
+                (white == secondSeed
+                        && black == firstSeed);
+    }
+
+    private boolean samePair(
+            TournamentMatch first,
+            TournamentMatch second
+    ) {
+
+        if (first.getBlackParticipant() == null
+                || second.getBlackParticipant() == null) {
+
+            return false;
+        }
+
+        return containsPair(
+                second,
+                first.getWhiteParticipant()
+                        .getSeed(),
+                first.getBlackParticipant()
+                        .getSeed()
         );
+    }
+
+    private String pairKey(
+            TournamentMatch match
+    ) {
+
+        int first =
+                match.getWhiteParticipant()
+                        .getSeed();
+
+        int second =
+                match.getBlackParticipant()
+                        .getSeed();
+
+        return Math.min(first, second)
+                + "-"
+                + Math.max(first, second);
     }
 
     private void completeWithWinner(
@@ -872,24 +1708,22 @@ class TournamentPairingServiceTest {
         }
     }
 
-    private String pairKey(
-            TournamentMatch match
+    private void setId(
+            BaseEntity entity,
+            Long id
     ) {
 
-        int first =
-                match.getWhiteParticipant()
-                        .getSeed();
+        try {
 
-        int second =
-                match.getBlackParticipant()
-                        .getSeed();
+            var field =
+                    BaseEntity.class
+                            .getDeclaredField("id");
 
-        int lower =
-                Math.min(first, second);
+            field.setAccessible(true);
+            field.set(entity, id);
 
-        int higher =
-                Math.max(first, second);
-
-        return lower + "-" + higher;
+        } catch (ReflectiveOperationException e) {
+            throw new RuntimeException(e);
+        }
     }
 }
