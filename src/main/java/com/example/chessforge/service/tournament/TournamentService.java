@@ -525,34 +525,50 @@ public class TournamentService {
         TimeControlType type =
                 tournament.getTimeControl().getType();
 
+        /*
+         * Snapshot the rating exactly once,
+         * when the tournament starts.
+         */
+        for (TournamentParticipant participant : participants) {
+
+            int rating =
+                    ratingService.getRating(
+                            participant.getUser(),
+                            type
+                    );
+
+            participant.setRatingAtStart(
+                    rating
+            );
+        }
+
         List<TournamentParticipant> sorted =
                 new ArrayList<>(participants);
 
         sorted.sort(
                 Comparator
                         .comparingInt(
-                                (TournamentParticipant p) ->
-                                        ratingService.getRating(
-                                                p.getUser(),
-                                                type
-                                        )
+                                (TournamentParticipant participant) ->
+                                        participant.getRatingAtStart()
                         )
                         .reversed()
                         .thenComparing(
-                                p ->
-                                        p.getUser()
+                                participant ->
+                                        participant.getUser()
                                                 .getUsername(),
                                 String.CASE_INSENSITIVE_ORDER
                         )
                         .thenComparing(
-                                p ->
-                                        p.getUser()
+                                participant ->
+                                        participant.getUser()
                                                 .getId()
                         )
         );
 
         for (int i = 0; i < sorted.size(); i++) {
-            sorted.get(i).setSeed(i + 1);
+            sorted.get(i).setSeed(
+                    i + 1
+            );
         }
     }
 

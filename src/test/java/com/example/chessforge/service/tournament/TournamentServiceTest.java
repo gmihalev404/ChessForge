@@ -574,6 +574,21 @@ class TournamentServiceTest {
         );
 
         assertEquals(
+                800,
+                pCreator.getRatingAtStart()
+        );
+
+        assertEquals(
+                600,
+                pThird.getRatingAtStart()
+        );
+
+        assertEquals(
+                600,
+                pPlayer.getRatingAtStart()
+        );
+
+        assertEquals(
                 generated,
                 result
         );
@@ -581,6 +596,110 @@ class TournamentServiceTest {
         verify(
                 matchRepository
         ).saveAll(generated);
+    }
+
+    @Test
+    void startTournamentShouldSnapshotParticipantRatings() {
+
+        Tournament tournament =
+                createTournament(
+                        TournamentStatus.REGISTRATION,
+                        TournamentFormat.ROUND_ROBIN
+                );
+
+        TournamentParticipant first =
+                createParticipant(
+                        tournament,
+                        creator
+                );
+
+        TournamentParticipant second =
+                createParticipant(
+                        tournament,
+                        player
+                );
+
+        List<TournamentParticipant> participants =
+                List.of(
+                        first,
+                        second
+                );
+
+        when(
+                participantRepository
+                        .findByTournament(tournament)
+        ).thenReturn(participants);
+
+        TimeControlType type =
+                tournament.getTimeControl()
+                        .getType();
+
+        when(
+                ratingService.getRating(
+                        creator,
+                        type
+                )
+        ).thenReturn(1450);
+
+        when(
+                ratingService.getRating(
+                        player,
+                        type
+                )
+        ).thenReturn(1720);
+
+        when(
+                pairingService.createInitialPairings(
+                        eq(tournament),
+                        anyList()
+                )
+        ).thenReturn(
+                List.of()
+        );
+
+        tournamentService.startTournament(
+                tournament,
+                creator
+        );
+
+        assertEquals(
+                1450,
+                first.getRatingAtStart()
+        );
+
+        assertEquals(
+                1720,
+                second.getRatingAtStart()
+        );
+
+        /*
+         * Higher rating receives better seed.
+         */
+        assertEquals(
+                2,
+                first.getSeed()
+        );
+
+        assertEquals(
+                1,
+                second.getSeed()
+        );
+
+        verify(
+                ratingService,
+                times(1)
+        ).getRating(
+                creator,
+                type
+        );
+
+        verify(
+                ratingService,
+                times(1)
+        ).getRating(
+                player,
+                type
+        );
     }
 
     @Test

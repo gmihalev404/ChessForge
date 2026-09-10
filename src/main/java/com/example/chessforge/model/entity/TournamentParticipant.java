@@ -45,6 +45,9 @@ public class TournamentParticipant extends BaseEntity {
     @Column(nullable = false, updatable = false)
     private LocalDateTime joinedAt;
 
+    @Column(name = "rating_at_start")
+    private Integer ratingAtStart;
+
     @PrePersist
     private void onCreate() {
 
