@@ -92,14 +92,47 @@ public class GameService {
             );
         }
 
-        game.setStatus(GameStatus.IN_PROGRESS);
-        game.setStartedAt(LocalDateTime.now());
+        TournamentMatch tournamentMatch =
+                game.getTournamentMatch();
+
+        if (tournamentMatch != null) {
+
+            if (tournamentMatch.getStatus()
+                    == TournamentMatchStatus.COMPLETED) {
+
+                throw new IllegalStateException(
+                        "A game cannot be started for a completed tournament match."
+                );
+            }
+
+            if (tournamentMatch.getStatus()
+                    == TournamentMatchStatus.PENDING) {
+
+                tournamentMatch.setStatus(
+                        TournamentMatchStatus.IN_PROGRESS
+                );
+            }
+        }
+
+        game.setStatus(
+                GameStatus.IN_PROGRESS
+        );
+
+        game.setStartedAt(
+                LocalDateTime.now()
+        );
 
         int initialTime =
-                game.getTimeControl().getInitialTimeSeconds();
+                game.getTimeControl()
+                        .getInitialTimeSeconds();
 
-        game.setWhiteTimeRemaining(initialTime);
-        game.setBlackTimeRemaining(initialTime);
+        game.setWhiteTimeRemaining(
+                initialTime
+        );
+
+        game.setBlackTimeRemaining(
+                initialTime
+        );
 
         setRatingSnapshots(game);
     }

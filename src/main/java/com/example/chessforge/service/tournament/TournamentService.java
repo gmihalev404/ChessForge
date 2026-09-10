@@ -1,9 +1,6 @@
 package com.example.chessforge.service.tournament;
 
-import com.example.chessforge.model.entity.Tournament;
-import com.example.chessforge.model.entity.TournamentMatch;
-import com.example.chessforge.model.entity.TournamentParticipant;
-import com.example.chessforge.model.entity.User;
+import com.example.chessforge.model.entity.*;
 import com.example.chessforge.model.enums.*;
 import com.example.chessforge.repository.TournamentMatchRepository;
 import com.example.chessforge.repository.TournamentParticipantRepository;
@@ -513,6 +510,68 @@ public class TournamentService {
         );
     }
 
+    @Transactional
+    public void recordGameResult(
+            Game game
+    ) {
+
+        if (game.getTournamentMatch() == null) {
+            throw new IllegalArgumentException(
+                    "Game does not belong to a tournament match."
+            );
+        }
+
+        if (game.getStatus() != GameStatus.FINISHED) {
+            throw new IllegalStateException(
+                    "Only a finished game can update a tournament match."
+            );
+        }
+
+        if (game.getResult() == null) {
+            throw new IllegalStateException(
+                    "Finished game must have a result."
+            );
+        }
+
+        TournamentMatch match =
+                game.getTournamentMatch();
+
+        if (match.getStatus()
+                == TournamentMatchStatus.COMPLETED) {
+
+            throw new IllegalStateException(
+                    "Tournament match is already completed."
+            );
+        }
+
+        Tournament tournament =
+                match.getTournament();
+
+        if (tournament.getStatus()
+                != TournamentStatus.IN_PROGRESS) {
+
+            throw new IllegalStateException(
+                    "Tournament is not in progress."
+            );
+        }
+
+        if (tournament.getFormat()
+                == TournamentFormat.SINGLE_ELIMINATION) {
+
+            recordKnockoutGameResult(
+                    match,
+                    game
+            );
+
+            return;
+        }
+
+        recordStandardGameResult(
+                match,
+                game
+        );
+    }
+
     // =========================================================
     // HELPERS
     // =========================================================
@@ -842,5 +901,137 @@ public class TournamentService {
                 );
             }
         }
+    }
+
+    private void recordStandardGameResult(
+            TournamentMatch match,
+            Game game
+    ) {
+
+        switch (game.getResult()) {
+
+            case WHITE_WIN ->
+                    completeTournamentMatch(
+                            match,
+                            1.0,
+                            0.0,
+                            TournamentMatchTermination.PLAYED
+                    );
+
+            case BLACK_WIN ->
+                    completeTournamentMatch(
+                            match,
+                            0.0,
+                            1.0,
+                            TournamentMatchTermination.PLAYED
+                    );
+
+            case DRAW ->
+                    completeTournamentMatch(
+                            match,
+                            0.5,
+                            0.5,
+                            TournamentMatchTermination.PLAYED
+                    );
+        }
+    }
+
+    private void completeTournamentMatch(
+            TournamentMatch match,
+            double whiteScore,
+            double blackScore,
+            TournamentMatchTermination termination
+    ) {
+
+        match.setWhiteScore(
+                whiteScore
+        );
+
+        match.setBlackScore(
+                blackScore
+        );
+
+        match.setTermination(
+                termination
+        );
+
+        match.setStatus(
+                TournamentMatchStatus.COMPLETED
+        );
+
+        addScore(
+                match.getWhiteParticipant(),
+                whiteScore
+        );
+
+        addScore(
+                match.getBlackParticipant(),
+                blackScore
+        );
+    }
+
+    private void recordKnockoutGameResult(
+            TournamentMatch match,
+            Game game
+    ) {
+
+        switch (game.getResult()) {
+
+            case WHITE_WIN ->
+                    completeKnockoutMatch(
+                            match,
+                            match.getWhiteParticipant(),
+                            match.getBlackParticipant(),
+                            1.0,
+                            0.0
+                    );
+
+            case BLACK_WIN ->
+                    completeKnockoutMatch(
+                            match,
+                            match.getBlackParticipant(),
+                            match.getWhiteParticipant(),
+                            0.0,
+                            1.0
+                    );
+
+            case DRAW -> {
+                /*
+                 * The Game is finished, but the TournamentMatch
+                 * remains unresolved.
+                 *
+                 * Another Game may later be created for this match.
+                 */
+            }
+        }
+    }
+
+    private void completeKnockoutMatch(
+            TournamentMatch match,
+            TournamentParticipant winner,
+            TournamentParticipant loser,
+            double whiteScore,
+            double blackScore
+    ) {
+
+        match.setWhiteScore(
+                whiteScore
+        );
+
+        match.setBlackScore(
+                blackScore
+        );
+
+        match.setTermination(
+                TournamentMatchTermination.PLAYED
+        );
+
+        match.setStatus(
+                TournamentMatchStatus.COMPLETED
+        );
+
+        loser.setStatus(
+                TournamentParticipantStatus.ELIMINATED
+        );
     }
 }

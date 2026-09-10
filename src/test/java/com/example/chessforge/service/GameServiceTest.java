@@ -692,6 +692,162 @@ class GameServiceTest {
                 );
     }
 
+    @Test
+    void startGameShouldStartTournamentMatch() {
+
+        TournamentMatch tournamentMatch =
+                TournamentMatch.builder()
+                        .status(
+                                TournamentMatchStatus.PENDING
+                        )
+                        .build();
+
+        Game game =
+                createWaitingGame(
+                        challenger,
+                        opponent,
+                        TimeControl.values()[0]
+                );
+
+        game.setTournamentMatch(
+                tournamentMatch
+        );
+
+        when(
+                gameRepository.existsByPlayerAndStatus(
+                        game.getWhitePlayer(),
+                        GameStatus.IN_PROGRESS
+                )
+        ).thenReturn(false);
+
+        when(
+                gameRepository.existsByPlayerAndStatus(
+                        game.getBlackPlayer(),
+                        GameStatus.IN_PROGRESS
+                )
+        ).thenReturn(false);
+
+        gameService.startGame(game);
+
+        assertEquals(
+                GameStatus.IN_PROGRESS,
+                game.getStatus()
+        );
+
+        assertEquals(
+                TournamentMatchStatus.IN_PROGRESS,
+                tournamentMatch.getStatus()
+        );
+    }
+
+    @Test
+    void startGameShouldAllowTournamentMatchAlreadyInProgress() {
+
+        TournamentMatch tournamentMatch =
+                TournamentMatch.builder()
+                        .status(
+                                TournamentMatchStatus.IN_PROGRESS
+                        )
+                        .build();
+
+        Game game =
+                createWaitingGame(
+                        challenger,
+                        opponent,
+                        TimeControl.values()[0]
+                );
+
+        game.setTournamentMatch(
+                tournamentMatch
+        );
+
+        when(
+                gameRepository.existsByPlayerAndStatus(
+                        game.getWhitePlayer(),
+                        GameStatus.IN_PROGRESS
+                )
+        ).thenReturn(false);
+
+        when(
+                gameRepository.existsByPlayerAndStatus(
+                        game.getBlackPlayer(),
+                        GameStatus.IN_PROGRESS
+                )
+        ).thenReturn(false);
+
+        assertDoesNotThrow(
+                () ->
+                        gameService.startGame(
+                                game
+                        )
+        );
+
+        assertEquals(
+                GameStatus.IN_PROGRESS,
+                game.getStatus()
+        );
+
+        assertEquals(
+                TournamentMatchStatus.IN_PROGRESS,
+                tournamentMatch.getStatus()
+        );
+    }
+
+    @Test
+    void startGameShouldRejectCompletedTournamentMatch() {
+
+        TournamentMatch tournamentMatch =
+                TournamentMatch.builder()
+                        .status(
+                                TournamentMatchStatus.COMPLETED
+                        )
+                        .build();
+
+        Game game =
+                createWaitingGame(
+                        challenger,
+                        opponent,
+                        TimeControl.values()[0]
+                );
+
+        game.setTournamentMatch(
+                tournamentMatch
+        );
+
+        when(
+                gameRepository.existsByPlayerAndStatus(
+                        game.getWhitePlayer(),
+                        GameStatus.IN_PROGRESS
+                )
+        ).thenReturn(false);
+
+        when(
+                gameRepository.existsByPlayerAndStatus(
+                        game.getBlackPlayer(),
+                        GameStatus.IN_PROGRESS
+                )
+        ).thenReturn(false);
+
+        IllegalStateException exception =
+                assertThrows(
+                        IllegalStateException.class,
+                        () ->
+                                gameService.startGame(
+                                        game
+                                )
+                );
+
+        assertEquals(
+                "A game cannot be started for a completed tournament match.",
+                exception.getMessage()
+        );
+
+        assertEquals(
+                GameStatus.WAITING,
+                game.getStatus()
+        );
+    }
+
     // =========================================================
     // HELPERS
     // =========================================================

@@ -1,10 +1,6 @@
 package com.example.chessforge.service.tournament;
 
-import com.example.chessforge.model.entity.BaseEntity;
-import com.example.chessforge.model.entity.Tournament;
-import com.example.chessforge.model.entity.TournamentMatch;
-import com.example.chessforge.model.entity.TournamentParticipant;
-import com.example.chessforge.model.entity.User;
+import com.example.chessforge.model.entity.*;
 import com.example.chessforge.model.enums.*;
 import com.example.chessforge.repository.TournamentMatchRepository;
 import com.example.chessforge.repository.TournamentParticipantRepository;
@@ -1494,6 +1490,663 @@ class TournamentServiceTest {
     }
 
     // =========================================================
+// RECORD GAME RESULT - SWISS / ROUND ROBIN
+// =========================================================
+
+    @Test
+    void recordGameResultShouldCompleteSwissMatchAfterWhiteWin() {
+
+        Tournament tournament =
+                createTournament(
+                        TournamentStatus.IN_PROGRESS,
+                        TournamentFormat.SWISS
+                );
+
+        TournamentParticipant white =
+                createParticipant(
+                        tournament,
+                        creator
+                );
+
+        TournamentParticipant black =
+                createParticipant(
+                        tournament,
+                        player
+                );
+
+        white.setScore(1.5);
+        black.setScore(2.0);
+
+        TournamentMatch match =
+                TournamentMatch.builder()
+                        .tournament(tournament)
+                        .whiteParticipant(white)
+                        .blackParticipant(black)
+                        .roundNumber(2)
+                        .boardNumber(1)
+                        .status(
+                                TournamentMatchStatus.IN_PROGRESS
+                        )
+                        .build();
+
+        Game game =
+                Game.builder()
+                        .whitePlayer(creator)
+                        .blackPlayer(player)
+                        .tournamentMatch(match)
+                        .status(GameStatus.FINISHED)
+                        .result(GameResult.WHITE_WIN)
+                        .build();
+
+        tournamentService.recordGameResult(game);
+
+        assertEquals(
+                TournamentMatchStatus.COMPLETED,
+                match.getStatus()
+        );
+
+        assertEquals(
+                TournamentMatchTermination.PLAYED,
+                match.getTermination()
+        );
+
+        assertEquals(
+                1.0,
+                match.getWhiteScore()
+        );
+
+        assertEquals(
+                0.0,
+                match.getBlackScore()
+        );
+
+        assertEquals(
+                2.5,
+                white.getScore()
+        );
+
+        assertEquals(
+                2.0,
+                black.getScore()
+        );
+    }
+
+    @Test
+    void recordGameResultShouldCompleteRoundRobinMatchAfterBlackWin() {
+
+        Tournament tournament =
+                createTournament(
+                        TournamentStatus.IN_PROGRESS,
+                        TournamentFormat.ROUND_ROBIN
+                );
+
+        TournamentParticipant white =
+                createParticipant(
+                        tournament,
+                        creator
+                );
+
+        TournamentParticipant black =
+                createParticipant(
+                        tournament,
+                        player
+                );
+
+        white.setScore(2.0);
+        black.setScore(1.0);
+
+        TournamentMatch match =
+                TournamentMatch.builder()
+                        .tournament(tournament)
+                        .whiteParticipant(white)
+                        .blackParticipant(black)
+                        .roundNumber(1)
+                        .boardNumber(1)
+                        .status(
+                                TournamentMatchStatus.IN_PROGRESS
+                        )
+                        .build();
+
+        Game game =
+                Game.builder()
+                        .whitePlayer(creator)
+                        .blackPlayer(player)
+                        .tournamentMatch(match)
+                        .status(GameStatus.FINISHED)
+                        .result(GameResult.BLACK_WIN)
+                        .build();
+
+        tournamentService.recordGameResult(game);
+
+        assertEquals(
+                TournamentMatchStatus.COMPLETED,
+                match.getStatus()
+        );
+
+        assertEquals(
+                0.0,
+                match.getWhiteScore()
+        );
+
+        assertEquals(
+                1.0,
+                match.getBlackScore()
+        );
+
+        assertEquals(
+                2.0,
+                white.getScore()
+        );
+
+        assertEquals(
+                2.0,
+                black.getScore()
+        );
+    }
+
+    @Test
+    void recordGameResultShouldAwardHalfPointForDraw() {
+
+        Tournament tournament =
+                createTournament(
+                        TournamentStatus.IN_PROGRESS,
+                        TournamentFormat.SWISS
+                );
+
+        TournamentParticipant white =
+                createParticipant(
+                        tournament,
+                        creator
+                );
+
+        TournamentParticipant black =
+                createParticipant(
+                        tournament,
+                        player
+                );
+
+        white.setScore(2.0);
+        black.setScore(1.5);
+
+        TournamentMatch match =
+                TournamentMatch.builder()
+                        .tournament(tournament)
+                        .whiteParticipant(white)
+                        .blackParticipant(black)
+                        .status(
+                                TournamentMatchStatus.IN_PROGRESS
+                        )
+                        .build();
+
+        Game game =
+                Game.builder()
+                        .whitePlayer(creator)
+                        .blackPlayer(player)
+                        .tournamentMatch(match)
+                        .status(GameStatus.FINISHED)
+                        .result(GameResult.DRAW)
+                        .build();
+
+        tournamentService.recordGameResult(game);
+
+        assertEquals(
+                TournamentMatchStatus.COMPLETED,
+                match.getStatus()
+        );
+
+        assertEquals(
+                TournamentMatchTermination.PLAYED,
+                match.getTermination()
+        );
+
+        assertEquals(
+                0.5,
+                match.getWhiteScore()
+        );
+
+        assertEquals(
+                0.5,
+                match.getBlackScore()
+        );
+
+        assertEquals(
+                2.5,
+                white.getScore()
+        );
+
+        assertEquals(
+                2.0,
+                black.getScore()
+        );
+    }
+
+    // =========================================================
+// RECORD GAME RESULT - SINGLE ELIMINATION
+// =========================================================
+
+    @Test
+    void recordGameResultShouldCompleteKnockoutMatchAndEliminateLoser() {
+
+        Tournament tournament =
+                createTournament(
+                        TournamentStatus.IN_PROGRESS,
+                        TournamentFormat.SINGLE_ELIMINATION
+                );
+
+        TournamentParticipant white =
+                createParticipant(
+                        tournament,
+                        creator
+                );
+
+        TournamentParticipant black =
+                createParticipant(
+                        tournament,
+                        player
+                );
+
+        TournamentMatch match =
+                TournamentMatch.builder()
+                        .tournament(tournament)
+                        .whiteParticipant(white)
+                        .blackParticipant(black)
+                        .roundNumber(1)
+                        .boardNumber(1)
+                        .status(
+                                TournamentMatchStatus.IN_PROGRESS
+                        )
+                        .build();
+
+        Game game =
+                Game.builder()
+                        .whitePlayer(creator)
+                        .blackPlayer(player)
+                        .tournamentMatch(match)
+                        .status(GameStatus.FINISHED)
+                        .result(GameResult.WHITE_WIN)
+                        .build();
+
+        tournamentService.recordGameResult(game);
+
+        assertEquals(
+                TournamentMatchStatus.COMPLETED,
+                match.getStatus()
+        );
+
+        assertEquals(
+                TournamentMatchTermination.PLAYED,
+                match.getTermination()
+        );
+
+        assertEquals(
+                1.0,
+                match.getWhiteScore()
+        );
+
+        assertEquals(
+                0.0,
+                match.getBlackScore()
+        );
+
+        assertEquals(
+                TournamentParticipantStatus.ACTIVE,
+                white.getStatus()
+        );
+
+        assertEquals(
+                TournamentParticipantStatus.ELIMINATED,
+                black.getStatus()
+        );
+
+        /*
+         * Knockout progression does not use
+         * TournamentParticipant.score.
+         */
+        assertEquals(
+                0.0,
+                white.getScore()
+        );
+
+        assertEquals(
+                0.0,
+                black.getScore()
+        );
+    }
+
+    @Test
+    void recordGameResultShouldEliminateWhitePlayerAfterBlackKnockoutWin() {
+
+        Tournament tournament =
+                createTournament(
+                        TournamentStatus.IN_PROGRESS,
+                        TournamentFormat.SINGLE_ELIMINATION
+                );
+
+        TournamentParticipant white =
+                createParticipant(
+                        tournament,
+                        creator
+                );
+
+        TournamentParticipant black =
+                createParticipant(
+                        tournament,
+                        player
+                );
+
+        TournamentMatch match =
+                TournamentMatch.builder()
+                        .tournament(tournament)
+                        .whiteParticipant(white)
+                        .blackParticipant(black)
+                        .status(
+                                TournamentMatchStatus.IN_PROGRESS
+                        )
+                        .build();
+
+        Game game =
+                Game.builder()
+                        .whitePlayer(creator)
+                        .blackPlayer(player)
+                        .tournamentMatch(match)
+                        .status(GameStatus.FINISHED)
+                        .result(GameResult.BLACK_WIN)
+                        .build();
+
+        tournamentService.recordGameResult(game);
+
+        assertEquals(
+                TournamentParticipantStatus.ELIMINATED,
+                white.getStatus()
+        );
+
+        assertEquals(
+                TournamentParticipantStatus.ACTIVE,
+                black.getStatus()
+        );
+
+        assertEquals(
+                TournamentMatchStatus.COMPLETED,
+                match.getStatus()
+        );
+
+        assertEquals(
+                0.0,
+                match.getWhiteScore()
+        );
+
+        assertEquals(
+                1.0,
+                match.getBlackScore()
+        );
+    }
+
+    @Test
+    void recordGameResultShouldKeepKnockoutMatchUnresolvedAfterDraw() {
+
+        Tournament tournament =
+                createTournament(
+                        TournamentStatus.IN_PROGRESS,
+                        TournamentFormat.SINGLE_ELIMINATION
+                );
+
+        TournamentParticipant white =
+                createParticipant(
+                        tournament,
+                        creator
+                );
+
+        TournamentParticipant black =
+                createParticipant(
+                        tournament,
+                        player
+                );
+
+        TournamentMatch match =
+                TournamentMatch.builder()
+                        .tournament(tournament)
+                        .whiteParticipant(white)
+                        .blackParticipant(black)
+                        .status(
+                                TournamentMatchStatus.IN_PROGRESS
+                        )
+                        .build();
+
+        Game game =
+                Game.builder()
+                        .whitePlayer(creator)
+                        .blackPlayer(player)
+                        .tournamentMatch(match)
+                        .status(GameStatus.FINISHED)
+                        .result(GameResult.DRAW)
+                        .build();
+
+        tournamentService.recordGameResult(game);
+
+        /*
+         * Game ended, but the knockout matchup did not.
+         */
+        assertEquals(
+                TournamentMatchStatus.IN_PROGRESS,
+                match.getStatus()
+        );
+
+        assertNull(
+                match.getTermination()
+        );
+
+        assertNull(
+                match.getWhiteScore()
+        );
+
+        assertNull(
+                match.getBlackScore()
+        );
+
+        assertEquals(
+                TournamentParticipantStatus.ACTIVE,
+                white.getStatus()
+        );
+
+        assertEquals(
+                TournamentParticipantStatus.ACTIVE,
+                black.getStatus()
+        );
+
+        assertEquals(
+                0.0,
+                white.getScore()
+        );
+
+        assertEquals(
+                0.0,
+                black.getScore()
+        );
+    }
+
+    // =========================================================
+// RECORD GAME RESULT - VALIDATION
+// =========================================================
+
+    @Test
+    void recordGameResultShouldRejectNonTournamentGame() {
+
+        Game game =
+                Game.builder()
+                        .whitePlayer(creator)
+                        .blackPlayer(player)
+                        .status(GameStatus.FINISHED)
+                        .result(GameResult.WHITE_WIN)
+                        .tournamentMatch(null)
+                        .build();
+
+        IllegalArgumentException exception =
+                assertThrows(
+                        IllegalArgumentException.class,
+                        () ->
+                                tournamentService
+                                        .recordGameResult(game)
+                );
+
+        assertEquals(
+                "Game does not belong to a tournament match.",
+                exception.getMessage()
+        );
+    }
+
+    @Test
+    void recordGameResultShouldRejectUnfinishedGame() {
+
+        Tournament tournament =
+                createTournament(
+                        TournamentStatus.IN_PROGRESS,
+                        TournamentFormat.SWISS
+                );
+
+        TournamentMatch match =
+                createTournamentMatch(
+                        tournament
+                );
+
+        Game game =
+                Game.builder()
+                        .whitePlayer(creator)
+                        .blackPlayer(player)
+                        .tournamentMatch(match)
+                        .status(GameStatus.IN_PROGRESS)
+                        .result(null)
+                        .build();
+
+        IllegalStateException exception =
+                assertThrows(
+                        IllegalStateException.class,
+                        () ->
+                                tournamentService
+                                        .recordGameResult(game)
+                );
+
+        assertEquals(
+                "Only a finished game can update a tournament match.",
+                exception.getMessage()
+        );
+    }
+
+    @Test
+    void recordGameResultShouldRejectFinishedGameWithoutResult() {
+
+        Tournament tournament =
+                createTournament(
+                        TournamentStatus.IN_PROGRESS,
+                        TournamentFormat.SWISS
+                );
+
+        TournamentMatch match =
+                createTournamentMatch(
+                        tournament
+                );
+
+        Game game =
+                Game.builder()
+                        .whitePlayer(creator)
+                        .blackPlayer(player)
+                        .tournamentMatch(match)
+                        .status(GameStatus.FINISHED)
+                        .result(null)
+                        .build();
+
+        IllegalStateException exception =
+                assertThrows(
+                        IllegalStateException.class,
+                        () ->
+                                tournamentService
+                                        .recordGameResult(game)
+                );
+
+        assertEquals(
+                "Finished game must have a result.",
+                exception.getMessage()
+        );
+    }
+
+    @Test
+    void recordGameResultShouldRejectAlreadyCompletedTournamentMatch() {
+
+        Tournament tournament =
+                createTournament(
+                        TournamentStatus.IN_PROGRESS,
+                        TournamentFormat.SWISS
+                );
+
+        TournamentMatch match =
+                createTournamentMatch(
+                        tournament
+                );
+
+        match.setStatus(
+                TournamentMatchStatus.COMPLETED
+        );
+
+        Game game =
+                Game.builder()
+                        .whitePlayer(creator)
+                        .blackPlayer(player)
+                        .tournamentMatch(match)
+                        .status(GameStatus.FINISHED)
+                        .result(GameResult.WHITE_WIN)
+                        .build();
+
+        IllegalStateException exception =
+                assertThrows(
+                        IllegalStateException.class,
+                        () ->
+                                tournamentService
+                                        .recordGameResult(game)
+                );
+
+        assertEquals(
+                "Tournament match is already completed.",
+                exception.getMessage()
+        );
+    }
+
+    @Test
+    void recordGameResultShouldRejectTournamentThatIsNotInProgress() {
+
+        Tournament tournament =
+                createTournament(
+                        TournamentStatus.FINISHED,
+                        TournamentFormat.SWISS
+                );
+
+        TournamentMatch match =
+                createTournamentMatch(
+                        tournament
+                );
+
+        Game game =
+                Game.builder()
+                        .whitePlayer(creator)
+                        .blackPlayer(player)
+                        .tournamentMatch(match)
+                        .status(GameStatus.FINISHED)
+                        .result(GameResult.WHITE_WIN)
+                        .build();
+
+        IllegalStateException exception =
+                assertThrows(
+                        IllegalStateException.class,
+                        () ->
+                                tournamentService
+                                        .recordGameResult(game)
+                );
+
+        assertEquals(
+                "Tournament is not in progress.",
+                exception.getMessage()
+        );
+    }
+
+    // =========================================================
     // HELPERS
     // =========================================================
 
@@ -1645,5 +2298,31 @@ class TournamentServiceTest {
         } catch (ReflectiveOperationException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    private TournamentMatch createTournamentMatch(
+            Tournament tournament
+    ) {
+
+        return TournamentMatch.builder()
+                .tournament(tournament)
+                .whiteParticipant(
+                        createParticipant(
+                                tournament,
+                                creator
+                        )
+                )
+                .blackParticipant(
+                        createParticipant(
+                                tournament,
+                                player
+                        )
+                )
+                .roundNumber(1)
+                .boardNumber(1)
+                .status(
+                        TournamentMatchStatus.IN_PROGRESS
+                )
+                .build();
     }
 }
