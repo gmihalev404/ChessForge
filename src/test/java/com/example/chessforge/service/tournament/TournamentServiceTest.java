@@ -1720,6 +1720,448 @@ class TournamentServiceTest {
         );
     }
 
+    @Test
+    void recordGameResultShouldNotAdvanceRoundWhenAnotherMatchIsStillPending() {
+
+        Tournament tournament =
+                createTournament(
+                        TournamentStatus.IN_PROGRESS,
+                        TournamentFormat.SWISS
+                );
+
+        tournament.setCurrentRound(1);
+        tournament.setNumberOfRounds(3);
+
+        TournamentParticipant white =
+                createParticipant(
+                        tournament,
+                        creator
+                );
+
+        TournamentParticipant black =
+                createParticipant(
+                        tournament,
+                        player
+                );
+
+        User thirdUser =
+                createUser(
+                        3L,
+                        "third"
+                );
+
+        User fourthUser =
+                createUser(
+                        4L,
+                        "fourth"
+                );
+
+        TournamentParticipant third =
+                createParticipant(
+                        tournament,
+                        thirdUser
+                );
+
+        TournamentParticipant fourth =
+                createParticipant(
+                        tournament,
+                        fourthUser
+                );
+
+        TournamentMatch finishedMatch =
+                TournamentMatch.builder()
+                        .tournament(tournament)
+                        .whiteParticipant(white)
+                        .blackParticipant(black)
+                        .roundNumber(1)
+                        .boardNumber(1)
+                        .status(
+                                TournamentMatchStatus.IN_PROGRESS
+                        )
+                        .build();
+
+        TournamentMatch pendingMatch =
+                TournamentMatch.builder()
+                        .tournament(tournament)
+                        .whiteParticipant(third)
+                        .blackParticipant(fourth)
+                        .roundNumber(1)
+                        .boardNumber(2)
+                        .status(
+                                TournamentMatchStatus.PENDING
+                        )
+                        .build();
+
+        Game game =
+                Game.builder()
+                        .whitePlayer(creator)
+                        .blackPlayer(player)
+                        .tournamentMatch(finishedMatch)
+                        .status(GameStatus.FINISHED)
+                        .result(GameResult.WHITE_WIN)
+                        .build();
+
+        when(
+                matchRepository
+                        .findByTournamentAndRoundNumberOrderByBoardNumber(
+                                tournament,
+                                1
+                        )
+        ).thenReturn(
+                List.of(
+                        finishedMatch,
+                        pendingMatch
+                )
+        );
+
+        tournamentService.recordGameResult(
+                game
+        );
+
+        assertEquals(
+                TournamentMatchStatus.COMPLETED,
+                finishedMatch.getStatus()
+        );
+
+        assertEquals(
+                TournamentMatchStatus.PENDING,
+                pendingMatch.getStatus()
+        );
+
+        assertEquals(
+                1,
+                tournament.getCurrentRound()
+        );
+
+        assertEquals(
+                TournamentStatus.IN_PROGRESS,
+                tournament.getStatus()
+        );
+
+        verify(
+                pairingService,
+                never()
+        ).createNextRound(
+                any(),
+                anyList(),
+                anyList(),
+                anyInt()
+        );
+    }
+
+    @Test
+    void recordGameResultShouldStartNextSwissRoundWhenCurrentRoundCompletes() {
+
+        Tournament tournament =
+                createTournament(
+                        TournamentStatus.IN_PROGRESS,
+                        TournamentFormat.SWISS
+                );
+
+        tournament.setCurrentRound(1);
+        tournament.setNumberOfRounds(3);
+
+        TournamentParticipant white =
+                createParticipant(
+                        tournament,
+                        creator
+                );
+
+        TournamentParticipant black =
+                createParticipant(
+                        tournament,
+                        player
+                );
+
+        List<TournamentParticipant> participants =
+                List.of(
+                        white,
+                        black
+                );
+
+        TournamentMatch currentMatch =
+                TournamentMatch.builder()
+                        .tournament(tournament)
+                        .whiteParticipant(white)
+                        .blackParticipant(black)
+                        .roundNumber(1)
+                        .boardNumber(1)
+                        .status(
+                                TournamentMatchStatus.IN_PROGRESS
+                        )
+                        .build();
+
+        Game game =
+                Game.builder()
+                        .whitePlayer(creator)
+                        .blackPlayer(player)
+                        .tournamentMatch(currentMatch)
+                        .status(GameStatus.FINISHED)
+                        .result(GameResult.WHITE_WIN)
+                        .build();
+
+        TournamentMatch nextMatch =
+                TournamentMatch.builder()
+                        .tournament(tournament)
+                        .whiteParticipant(white)
+                        .blackParticipant(black)
+                        .roundNumber(2)
+                        .boardNumber(1)
+                        .status(
+                                TournamentMatchStatus.PENDING
+                        )
+                        .build();
+
+        /*
+         * handleRoundCompletion() and startNextRound()
+         * both inspect round 1.
+         *
+         * The same object is returned, and after
+         * recordGameResult() it is COMPLETED.
+         */
+        when(
+                matchRepository
+                        .findByTournamentAndRoundNumberOrderByBoardNumber(
+                                tournament,
+                                1
+                        )
+        ).thenReturn(
+                List.of(currentMatch)
+        );
+
+        when(
+                participantRepository
+                        .findByTournament(tournament)
+        ).thenReturn(participants);
+
+        when(
+                matchRepository
+                        .findByTournament(tournament)
+        ).thenReturn(
+                List.of(currentMatch)
+        );
+
+        when(
+                pairingService.createNextRound(
+                        tournament,
+                        participants,
+                        List.of(currentMatch),
+                        2
+                )
+        ).thenReturn(
+                List.of(nextMatch)
+        );
+
+        tournamentService.recordGameResult(
+                game
+        );
+
+        assertEquals(
+                TournamentMatchStatus.COMPLETED,
+                currentMatch.getStatus()
+        );
+
+        assertEquals(
+                2,
+                tournament.getCurrentRound()
+        );
+
+        assertEquals(
+                TournamentStatus.IN_PROGRESS,
+                tournament.getStatus()
+        );
+
+        verify(
+                pairingService
+        ).createNextRound(
+                tournament,
+                participants,
+                List.of(currentMatch),
+                2
+        );
+
+        verify(
+                matchRepository
+        ).saveAll(
+                List.of(nextMatch)
+        );
+    }
+
+    @Test
+    void recordGameResultShouldFinishSwissTournamentAfterLastRound() {
+
+        Tournament tournament =
+                createTournament(
+                        TournamentStatus.IN_PROGRESS,
+                        TournamentFormat.SWISS
+                );
+
+        tournament.setNumberOfRounds(3);
+        tournament.setCurrentRound(3);
+
+        TournamentParticipant white =
+                createParticipant(
+                        tournament,
+                        creator
+                );
+
+        TournamentParticipant black =
+                createParticipant(
+                        tournament,
+                        player
+                );
+
+        TournamentMatch match =
+                TournamentMatch.builder()
+                        .tournament(tournament)
+                        .whiteParticipant(white)
+                        .blackParticipant(black)
+                        .roundNumber(3)
+                        .boardNumber(1)
+                        .status(
+                                TournamentMatchStatus.IN_PROGRESS
+                        )
+                        .build();
+
+        Game game =
+                Game.builder()
+                        .whitePlayer(creator)
+                        .blackPlayer(player)
+                        .tournamentMatch(match)
+                        .status(GameStatus.FINISHED)
+                        .result(GameResult.DRAW)
+                        .build();
+
+        when(
+                matchRepository
+                        .findByTournamentAndRoundNumberOrderByBoardNumber(
+                                tournament,
+                                3
+                        )
+        ).thenReturn(
+                List.of(match)
+        );
+
+        tournamentService.recordGameResult(
+                game
+        );
+
+        assertEquals(
+                TournamentMatchStatus.COMPLETED,
+                match.getStatus()
+        );
+
+        assertEquals(
+                TournamentStatus.FINISHED,
+                tournament.getStatus()
+        );
+
+        assertNotNull(
+                tournament.getFinishedAt()
+        );
+
+        assertEquals(
+                3,
+                tournament.getCurrentRound()
+        );
+
+        verify(
+                pairingService,
+                never()
+        ).createNextRound(
+                any(),
+                anyList(),
+                anyList(),
+                anyInt()
+        );
+    }
+
+    @Test
+    void recordGameResultShouldFinishRoundRobinWhenThereIsNoNextRound() {
+
+        Tournament tournament =
+                createTournament(
+                        TournamentStatus.IN_PROGRESS,
+                        TournamentFormat.ROUND_ROBIN
+                );
+
+        tournament.setCurrentRound(3);
+
+        TournamentParticipant white =
+                createParticipant(
+                        tournament,
+                        creator
+                );
+
+        TournamentParticipant black =
+                createParticipant(
+                        tournament,
+                        player
+                );
+
+        TournamentMatch match =
+                TournamentMatch.builder()
+                        .tournament(tournament)
+                        .whiteParticipant(white)
+                        .blackParticipant(black)
+                        .roundNumber(3)
+                        .boardNumber(1)
+                        .status(
+                                TournamentMatchStatus.IN_PROGRESS
+                        )
+                        .build();
+
+        Game game =
+                Game.builder()
+                        .whitePlayer(creator)
+                        .blackPlayer(player)
+                        .tournamentMatch(match)
+                        .status(GameStatus.FINISHED)
+                        .result(GameResult.WHITE_WIN)
+                        .build();
+
+        when(
+                matchRepository
+                        .findByTournamentAndRoundNumberOrderByBoardNumber(
+                                tournament,
+                                3
+                        )
+        ).thenReturn(
+                List.of(match)
+        );
+
+        /*
+         * Round 4 does not exist.
+         */
+        when(
+                matchRepository
+                        .findByTournamentAndRoundNumberOrderByBoardNumber(
+                                tournament,
+                                4
+                        )
+        ).thenReturn(
+                List.of()
+        );
+
+        tournamentService.recordGameResult(
+                game
+        );
+
+        assertEquals(
+                TournamentStatus.FINISHED,
+                tournament.getStatus()
+        );
+
+        assertNotNull(
+                tournament.getFinishedAt()
+        );
+
+        assertEquals(
+                3,
+                tournament.getCurrentRound()
+        );
+    }
+
     // =========================================================
 // RECORD GAME RESULT - SINGLE ELIMINATION
 // =========================================================
@@ -1961,6 +2403,188 @@ class TournamentServiceTest {
         assertEquals(
                 0.0,
                 black.getScore()
+        );
+    }
+
+    @Test
+    void recordGameResultShouldFinishSingleEliminationWhenOnePlayerRemains() {
+
+        Tournament tournament =
+                createTournament(
+                        TournamentStatus.IN_PROGRESS,
+                        TournamentFormat.SINGLE_ELIMINATION
+                );
+
+        tournament.setCurrentRound(3);
+
+        TournamentParticipant winner =
+                createParticipant(
+                        tournament,
+                        creator
+                );
+
+        TournamentParticipant loser =
+                createParticipant(
+                        tournament,
+                        player
+                );
+
+        TournamentMatch finalMatch =
+                TournamentMatch.builder()
+                        .tournament(tournament)
+                        .whiteParticipant(winner)
+                        .blackParticipant(loser)
+                        .roundNumber(3)
+                        .boardNumber(1)
+                        .status(
+                                TournamentMatchStatus.IN_PROGRESS
+                        )
+                        .build();
+
+        Game game =
+                Game.builder()
+                        .whitePlayer(creator)
+                        .blackPlayer(player)
+                        .tournamentMatch(finalMatch)
+                        .status(GameStatus.FINISHED)
+                        .result(GameResult.WHITE_WIN)
+                        .build();
+
+        when(
+                matchRepository
+                        .findByTournamentAndRoundNumberOrderByBoardNumber(
+                                tournament,
+                                3
+                        )
+        ).thenReturn(
+                List.of(finalMatch)
+        );
+
+        /*
+         * Repository returns both, but after
+         * recordKnockoutGameResult() loser becomes ELIMINATED.
+         *
+         * getActiveParticipants() filters the result.
+         */
+        when(
+                participantRepository
+                        .findByTournament(tournament)
+        ).thenReturn(
+                List.of(
+                        winner,
+                        loser
+                )
+        );
+
+        tournamentService.recordGameResult(
+                game
+        );
+
+        assertEquals(
+                TournamentParticipantStatus.ACTIVE,
+                winner.getStatus()
+        );
+
+        assertEquals(
+                TournamentParticipantStatus.ELIMINATED,
+                loser.getStatus()
+        );
+
+        assertEquals(
+                TournamentStatus.FINISHED,
+                tournament.getStatus()
+        );
+
+        assertNotNull(
+                tournament.getFinishedAt()
+        );
+
+        verify(
+                pairingService,
+                never()
+        ).createNextRound(
+                any(),
+                anyList(),
+                anyList(),
+                anyInt()
+        );
+    }
+
+    @Test
+    void knockoutDrawShouldNotAdvanceRound() {
+
+        Tournament tournament =
+                createTournament(
+                        TournamentStatus.IN_PROGRESS,
+                        TournamentFormat.SINGLE_ELIMINATION
+                );
+
+        tournament.setCurrentRound(2);
+
+        TournamentParticipant white =
+                createParticipant(
+                        tournament,
+                        creator
+                );
+
+        TournamentParticipant black =
+                createParticipant(
+                        tournament,
+                        player
+                );
+
+        TournamentMatch match =
+                TournamentMatch.builder()
+                        .tournament(tournament)
+                        .whiteParticipant(white)
+                        .blackParticipant(black)
+                        .roundNumber(2)
+                        .boardNumber(1)
+                        .status(
+                                TournamentMatchStatus.IN_PROGRESS
+                        )
+                        .build();
+
+        Game game =
+                Game.builder()
+                        .whitePlayer(creator)
+                        .blackPlayer(player)
+                        .tournamentMatch(match)
+                        .status(GameStatus.FINISHED)
+                        .result(GameResult.DRAW)
+                        .build();
+
+        when(
+                matchRepository
+                        .findByTournamentAndRoundNumberOrderByBoardNumber(
+                                tournament,
+                                2
+                        )
+        ).thenReturn(
+                List.of(match)
+        );
+
+        tournamentService.recordGameResult(
+                game
+        );
+
+        assertEquals(
+                TournamentMatchStatus.IN_PROGRESS,
+                match.getStatus()
+        );
+
+        assertEquals(
+                2,
+                tournament.getCurrentRound()
+        );
+
+        assertEquals(
+                TournamentStatus.IN_PROGRESS,
+                tournament.getStatus()
+        );
+
+        verifyNoInteractions(
+                pairingService
         );
     }
 

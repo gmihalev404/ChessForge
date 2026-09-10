@@ -3,6 +3,7 @@ package com.example.chessforge.service;
 import com.example.chessforge.model.entity.*;
 import com.example.chessforge.model.enums.*;
 import com.example.chessforge.repository.GameRepository;
+import com.example.chessforge.service.tournament.TournamentService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -26,6 +27,9 @@ class GameServiceTest {
     @Mock
     private RatingService ratingService;
 
+    @Mock
+    private TournamentService tournamentService;
+
     private GameService gameService;
 
     private User challenger;
@@ -34,7 +38,12 @@ class GameServiceTest {
     @BeforeEach
     void setUp() {
 
-        gameService = new GameService(gameRepository, ratingService);
+        gameService =
+                new GameService(
+                        gameRepository,
+                        ratingService,
+                        tournamentService
+                );
 
         challenger = createUser(
                 1L,
@@ -566,6 +575,86 @@ class GameServiceTest {
         );
 
         verifyNoInteractions(ratingService);
+    }
+
+    @Test
+    void finishGameShouldUpdateTournamentMatchForTournamentGame() {
+
+        TournamentMatch tournamentMatch =
+                TournamentMatch.builder()
+                        .status(
+                                TournamentMatchStatus.IN_PROGRESS
+                        )
+                        .build();
+
+        Game game =
+                createWaitingGame(
+                        challenger,
+                        opponent,
+                        TimeControl.values()[0]
+                );
+
+        game.setStatus(
+                GameStatus.IN_PROGRESS
+        );
+
+        game.setTournamentMatch(
+                tournamentMatch
+        );
+
+        gameService.finishGame(
+                game,
+                GameResult.WHITE_WIN,
+                GameTermination.CHECKMATE
+        );
+
+        assertEquals(
+                GameStatus.FINISHED,
+                game.getStatus()
+        );
+
+        assertEquals(
+                GameResult.WHITE_WIN,
+                game.getResult()
+        );
+
+        verify(ratingService)
+                .updateRatings(game);
+
+        verify(tournamentService)
+                .recordGameResult(game);
+    }
+
+    @Test
+    void finishGameShouldNotUpdateTournamentForNormalGame() {
+
+        Game game =
+                createWaitingGame(
+                        challenger,
+                        opponent,
+                        TimeControl.values()[0]
+                );
+
+        game.setStatus(
+                GameStatus.IN_PROGRESS
+        );
+
+        assertNull(
+                game.getTournamentMatch()
+        );
+
+        gameService.finishGame(
+                game,
+                GameResult.BLACK_WIN,
+                GameTermination.RESIGNATION
+        );
+
+        verify(ratingService)
+                .updateRatings(game);
+
+        verifyNoInteractions(
+                tournamentService
+        );
     }
 
     // =========================================================

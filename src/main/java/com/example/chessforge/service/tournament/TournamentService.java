@@ -248,6 +248,10 @@ public class TournamentService {
                 tournament,
                 currentRoundMatches
         );
+
+        handleRoundCompletion(
+                tournament
+        );
     }
 
     // =========================================================
@@ -476,6 +480,10 @@ public class TournamentService {
                 matches
         );
 
+        handleRoundCompletion(
+                tournament
+        );
+
         return matches;
     }
 
@@ -563,12 +571,16 @@ public class TournamentService {
                     game
             );
 
-            return;
+        } else {
+
+            recordStandardGameResult(
+                    match,
+                    game
+            );
         }
 
-        recordStandardGameResult(
-                match,
-                game
+        handleRoundCompletion(
+                tournament
         );
     }
 
@@ -1032,6 +1044,156 @@ public class TournamentService {
 
         loser.setStatus(
                 TournamentParticipantStatus.ELIMINATED
+        );
+    }
+
+    private void handleRoundCompletion(
+            Tournament tournament
+    ) {
+
+        if (tournament.getStatus()
+                != TournamentStatus.IN_PROGRESS) {
+            return;
+        }
+
+        Integer currentRound =
+                tournament.getCurrentRound();
+
+        if (currentRound == null) {
+            return;
+        }
+
+        List<TournamentMatch> currentRoundMatches =
+                matchRepository
+                        .findByTournamentAndRoundNumberOrderByBoardNumber(
+                                tournament,
+                                currentRound
+                        );
+
+        if (currentRoundMatches.isEmpty()) {
+            return;
+        }
+
+        boolean roundCompleted =
+                currentRoundMatches.stream()
+                        .allMatch(match ->
+                                match.getStatus()
+                                        == TournamentMatchStatus.COMPLETED
+                        );
+
+        if (!roundCompleted) {
+            return;
+        }
+
+        switch (tournament.getFormat()) {
+
+            case SINGLE_ELIMINATION ->
+                    handleSingleEliminationRoundCompletion(
+                            tournament
+                    );
+
+            case ROUND_ROBIN ->
+                    handleRoundRobinRoundCompletion(
+                            tournament
+                    );
+
+            case SWISS ->
+                    handleSwissRoundCompletion(
+                            tournament
+                    );
+        }
+    }
+
+    private void handleSingleEliminationRoundCompletion(
+            Tournament tournament
+    ) {
+
+        List<TournamentParticipant> activeParticipants =
+                getActiveParticipants(
+                        tournament
+                );
+
+        /*
+         * Only one player remains -> champion.
+         */
+        if (activeParticipants.size() == 1) {
+
+            finishTournament(
+                    tournament
+            );
+
+            return;
+        }
+
+        if (activeParticipants.isEmpty()) {
+
+            throw new IllegalStateException(
+                    "Single-elimination tournament has no remaining active participant."
+            );
+        }
+
+        startNextRound(
+                tournament
+        );
+    }
+
+    private void handleSwissRoundCompletion(
+            Tournament tournament
+    ) {
+
+        if (tournament.getCurrentRound()
+                >= tournament.getNumberOfRounds()) {
+
+            finishTournament(
+                    tournament
+            );
+
+            return;
+        }
+
+        startNextRound(
+                tournament
+        );
+    }
+
+    private void handleRoundRobinRoundCompletion(
+            Tournament tournament
+    ) {
+
+        int nextRound =
+                tournament.getCurrentRound() + 1;
+
+        List<TournamentMatch> nextRoundMatches =
+                matchRepository
+                        .findByTournamentAndRoundNumberOrderByBoardNumber(
+                                tournament,
+                                nextRound
+                        );
+
+        if (nextRoundMatches.isEmpty()) {
+
+            finishTournament(
+                    tournament
+            );
+
+            return;
+        }
+
+        startNextRound(
+                tournament
+        );
+    }
+
+    private void finishTournament(
+            Tournament tournament
+    ) {
+
+        tournament.setStatus(
+                TournamentStatus.FINISHED
+        );
+
+        tournament.setFinishedAt(
+                LocalDateTime.now()
         );
     }
 }

@@ -3,6 +3,7 @@ package com.example.chessforge.service;
 import com.example.chessforge.model.entity.*;
 import com.example.chessforge.model.enums.*;
 import com.example.chessforge.repository.GameRepository;
+import com.example.chessforge.service.tournament.TournamentService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,6 +19,7 @@ public class GameService {
 
     private final GameRepository gameRepository;
     private final RatingService ratingService;
+    private final TournamentService tournamentService;
 
     @Transactional
     public Game createGameFromChallenge(Challenge challenge) {
@@ -168,6 +170,10 @@ public class GameService {
         game.setFinishedAt(LocalDateTime.now());
 
         ratingService.updateRatings(game);
+
+        if (game.getTournamentMatch() != null) {
+            tournamentService.recordGameResult(game);
+        }
     }
 
     @Transactional
