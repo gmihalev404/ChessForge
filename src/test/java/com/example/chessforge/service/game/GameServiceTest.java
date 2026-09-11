@@ -21,6 +21,7 @@ import com.example.chessforge.model.enums.user.UserStatus;
 import com.example.chessforge.repository.game.GameRepository;
 import com.example.chessforge.service.game.GameService;
 import com.example.chessforge.service.game.RatingService;
+import com.example.chessforge.service.game.engine.GameEngine;
 import com.example.chessforge.service.tournament.TournamentService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -28,6 +29,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -48,6 +50,10 @@ class GameServiceTest {
     @Mock
     private TournamentService tournamentService;
 
+    @Mock
+    private GameEngine gameEngine;
+
+    @InjectMocks
     private GameService gameService;
 
     private User challenger;
@@ -55,14 +61,6 @@ class GameServiceTest {
 
     @BeforeEach
     void setUp() {
-
-        gameService =
-                new GameService(
-                        gameRepository,
-                        ratingService,
-                        tournamentService
-                );
-
         challenger = createUser(
                 1L,
                 "challenger",

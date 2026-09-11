@@ -207,7 +207,11 @@ public class MoveGenerator {
              * Empty square:
              * knight may move there.
              */
-            if (targetPiece == null) {
+            if (targetPiece == null
+                    || canCapture(
+                    targetPiece,
+                    color
+            )) {
 
                 moves.add(
                         new Move(
@@ -302,8 +306,10 @@ public class MoveGenerator {
                 }
 
                 // Enemy piece -> capture, then stop.
-                if (targetPiece.color()
-                        != color) {
+                if (canCapture(
+                        targetPiece,
+                        color
+                )) {
 
                     moves.add(
                             new Move(
@@ -375,8 +381,10 @@ public class MoveGenerator {
                     );
 
             if (targetPiece == null
-                    || targetPiece.color()
-                    != color) {
+                    || canCapture(
+                    targetPiece,
+                    color
+            )) {
 
                 moves.add(
                         new Move(
@@ -574,9 +582,10 @@ public class MoveGenerator {
                             .getPiece(target);
 
             // Normal diagonal capture.
-            if (targetPiece != null
-                    && targetPiece.color()
-                    != color) {
+            if (canCapture(
+                    targetPiece,
+                    color
+            )) {
 
                 addPawnMove(
                         moves,
@@ -712,5 +721,15 @@ public class MoveGenerator {
         return color == PieceColor.WHITE
                 ? WHITE_PROMOTION_RANK
                 : BLACK_PROMOTION_RANK;
+    }
+
+    private boolean canCapture(
+            Piece targetPiece,
+            PieceColor movingColor
+    ) {
+
+        return targetPiece != null
+                && targetPiece.color() != movingColor
+                && targetPiece.type() != PieceType.KING;
     }
 }

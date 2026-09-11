@@ -13,6 +13,7 @@ import com.example.chessforge.model.enums.timeControl.TimeControl;
 import com.example.chessforge.model.enums.timeControl.TimeControlType;
 import com.example.chessforge.model.enums.tournament.TournamentMatchStatus;
 import com.example.chessforge.repository.game.GameRepository;
+import com.example.chessforge.service.game.engine.GameEngine;
 import com.example.chessforge.service.tournament.TournamentService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -30,6 +31,7 @@ public class GameService {
     private final GameRepository gameRepository;
     private final RatingService ratingService;
     private final TournamentService tournamentService;
+    private final GameEngine gameEngine;
 
     @Transactional
     public Game createGameFromChallenge(Challenge challenge) {
