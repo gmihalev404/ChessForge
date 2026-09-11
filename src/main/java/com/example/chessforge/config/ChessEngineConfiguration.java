@@ -1,9 +1,11 @@
 package com.example.chessforge.config;
 
+import com.example.chessforge.service.game.engine.history.PositionKeyFactory;
 import com.example.chessforge.service.game.engine.move.LegalMoveGenerator;
 import com.example.chessforge.service.game.engine.move.MoveApplier;
 import com.example.chessforge.service.game.engine.move.MoveGenerator;
 import com.example.chessforge.service.game.engine.rule.AttackDetector;
+import com.example.chessforge.service.game.engine.rule.DrawEvaluator;
 import com.example.chessforge.service.game.engine.rule.PositionEvaluator;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -49,6 +51,26 @@ public class ChessEngineConfiguration {
         return new PositionEvaluator(
                 legalMoveGenerator,
                 attackDetector
+        );
+    }
+
+    @Bean
+    public PositionKeyFactory positionKeyFactory(
+            LegalMoveGenerator legalMoveGenerator
+    ) {
+
+        return new PositionKeyFactory(
+                legalMoveGenerator
+        );
+    }
+
+    @Bean
+    public DrawEvaluator drawEvaluator(
+            PositionEvaluator positionEvaluator
+    ) {
+
+        return new DrawEvaluator(
+                positionEvaluator
         );
     }
 }

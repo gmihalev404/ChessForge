@@ -1,10 +1,13 @@
 package com.example.chessforge.service.game.engine;
 
+import com.example.chessforge.service.game.engine.history.PositionKeyFactory;
+import com.example.chessforge.service.game.engine.history.RepetitionTracker;
 import com.example.chessforge.service.game.engine.model.*;
 import com.example.chessforge.service.game.engine.move.LegalMoveGenerator;
 import com.example.chessforge.service.game.engine.move.MoveApplier;
 import com.example.chessforge.service.game.engine.move.MoveGenerator;
 import com.example.chessforge.service.game.engine.rule.AttackDetector;
+import com.example.chessforge.service.game.engine.rule.DrawEvaluator;
 import com.example.chessforge.service.game.engine.rule.PositionEvaluator;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -16,6 +19,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class GameEngineTest {
 
     private GameEngine gameEngine;
+    private PositionKeyFactory positionKeyFactory;
 
     @BeforeEach
     void setUp() {
@@ -42,12 +46,23 @@ class GameEngineTest {
                         attackDetector
                 );
 
+        positionKeyFactory =
+                new PositionKeyFactory(
+                        legalMoveGenerator
+                );
+
+        DrawEvaluator drawEvaluator =
+                new DrawEvaluator(
+                        positionEvaluator
+                );
+
         gameEngine =
                 new GameEngine(
                         legalMoveGenerator,
                         moveApplier,
                         attackDetector,
-                        positionEvaluator
+                        positionEvaluator,
+                        drawEvaluator
                 );
     }
 
@@ -404,6 +419,76 @@ class GameEngineTest {
         assertTrue(
                 moves.contains(
                         Move.normal("e2", "e4")
+                )
+        );
+    }
+
+    // =========================================================
+    // DRAW
+    // =========================================================
+
+    @Test
+    void shouldExposeClaimableThreefoldRepetition() {
+
+        GameState state =
+                GameState.initial();
+
+        RepetitionTracker tracker =
+                new RepetitionTracker(
+                        positionKeyFactory,
+                        state
+                );
+
+        tracker.recordPosition(state);
+        tracker.recordPosition(state);
+
+        assertTrue(
+                gameEngine.canClaimDraw(
+                        state,
+                        tracker
+                )
+        );
+
+        assertTrue(
+                gameEngine.getClaimableDrawReasons(
+                        state,
+                        tracker
+                ).contains(
+                        DrawReason.THREEFOLD_REPETITION
+                )
+        );
+    }
+
+    @Test
+    void shouldExposeAutomaticFivefoldRepetition() {
+
+        GameState state =
+                GameState.initial();
+
+        RepetitionTracker tracker =
+                new RepetitionTracker(
+                        positionKeyFactory,
+                        state
+                );
+
+        tracker.recordPosition(state);
+        tracker.recordPosition(state);
+        tracker.recordPosition(state);
+        tracker.recordPosition(state);
+
+        assertTrue(
+                gameEngine.isAutomaticDraw(
+                        state,
+                        tracker
+                )
+        );
+
+        assertTrue(
+                gameEngine.getAutomaticDrawReasons(
+                        state,
+                        tracker
+                ).contains(
+                        DrawReason.FIVEFOLD_REPETITION
                 )
         );
     }

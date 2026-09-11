@@ -1,17 +1,17 @@
 package com.example.chessforge.service.game.engine;
 
-import com.example.chessforge.service.game.engine.model.GameState;
-import com.example.chessforge.service.game.engine.model.Move;
-import com.example.chessforge.service.game.engine.model.PieceColor;
-import com.example.chessforge.service.game.engine.model.Square;
+import com.example.chessforge.service.game.engine.history.RepetitionTracker;
+import com.example.chessforge.service.game.engine.model.*;
 import com.example.chessforge.service.game.engine.move.LegalMoveGenerator;
 import com.example.chessforge.service.game.engine.move.MoveApplier;
 import com.example.chessforge.service.game.engine.rule.AttackDetector;
+import com.example.chessforge.service.game.engine.rule.DrawEvaluator;
 import com.example.chessforge.service.game.engine.rule.PositionEvaluator;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 
 @Component
 public class GameEngine {
@@ -21,11 +21,14 @@ public class GameEngine {
     private final AttackDetector attackDetector;
     private final PositionEvaluator positionEvaluator;
 
+    private final DrawEvaluator drawEvaluator;
+
     public GameEngine(
             LegalMoveGenerator legalMoveGenerator,
             MoveApplier moveApplier,
             AttackDetector attackDetector,
-            PositionEvaluator positionEvaluator
+            PositionEvaluator positionEvaluator,
+            DrawEvaluator drawEvaluator
     ) {
 
         this.legalMoveGenerator =
@@ -51,6 +54,7 @@ public class GameEngine {
                         positionEvaluator,
                         "Position evaluator cannot be null."
                 );
+        this.drawEvaluator = drawEvaluator;
     }
 
     // =========================================================
@@ -166,11 +170,83 @@ public class GameEngine {
                 .isCheckmate(state);
     }
 
+    // =========================================================
+    // DRAW
+    // =========================================================
+
     public boolean isStalemate(
             GameState state
     ) {
 
         return positionEvaluator
                 .isStalemate(state);
+    }
+
+    public boolean isInsufficientMaterial(
+            GameState state
+    ) {
+
+        return positionEvaluator
+                .isInsufficientMaterial(
+                        state
+                );
+    }
+
+    public boolean isFiftyMoveRuleDraw(
+            GameState state
+    ) {
+
+        return positionEvaluator
+                .isFiftyMoveRuleDraw(
+                        state
+                );
+    }
+
+    public Set<DrawReason> getAutomaticDrawReasons(
+            GameState state,
+            RepetitionTracker repetitionTracker
+    ) {
+
+        return drawEvaluator
+                .getAutomaticDrawReasons(
+                        state,
+                        repetitionTracker
+                );
+    }
+
+    public Set<DrawReason> getClaimableDrawReasons(
+            GameState state,
+            RepetitionTracker repetitionTracker
+    ) {
+
+        return drawEvaluator
+                .getClaimableDrawReasons(
+                        state,
+                        repetitionTracker
+                );
+    }
+
+    public boolean isAutomaticDraw(
+            GameState state,
+            RepetitionTracker repetitionTracker
+    ) {
+
+        return drawEvaluator
+                .isAutomaticDraw(
+                        state,
+                        repetitionTracker
+                );
+    }
+
+    public boolean canClaimDraw(
+            GameState state,
+            RepetitionTracker repetitionTracker
+    ) {
+
+        return drawEvaluator
+                .canClaimDraw(
+                        state,
+                        repetitionTracker
+                );
     }
 }
