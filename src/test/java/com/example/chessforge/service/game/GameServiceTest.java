@@ -3,6 +3,7 @@ package com.example.chessforge.service.game;
 import com.example.chessforge.model.entity.challenge.Challenge;
 import com.example.chessforge.model.entity.common.BaseEntity;
 import com.example.chessforge.model.entity.game.Game;
+import com.example.chessforge.model.entity.game.GameMove;
 import com.example.chessforge.model.entity.tournament.Tournament;
 import com.example.chessforge.model.entity.tournament.TournamentMatch;
 import com.example.chessforge.model.entity.tournament.TournamentParticipant;
@@ -18,11 +19,10 @@ import com.example.chessforge.model.enums.tournament.TournamentMatchStatus;
 import com.example.chessforge.model.enums.tournament.TournamentMatchTermination;
 import com.example.chessforge.model.enums.tournament.TournamentParticipantStatus;
 import com.example.chessforge.model.enums.user.UserStatus;
+import com.example.chessforge.repository.game.GameMoveRepository;
 import com.example.chessforge.repository.game.GameRepository;
 import com.example.chessforge.service.game.engine.GameEngine;
-import com.example.chessforge.service.game.engine.model.GameState;
-import com.example.chessforge.service.game.engine.model.Move;
-import com.example.chessforge.service.game.engine.model.PieceColor;
+import com.example.chessforge.service.game.engine.model.*;
 import com.example.chessforge.service.tournament.TournamentService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -55,6 +55,9 @@ class GameServiceTest {
 
     @Mock
     private GameEngine gameEngine;
+
+    @Mock
+    private GameMoveRepository gameMoveRepository;
 
     @InjectMocks
     private GameService gameService;
@@ -1262,19 +1265,51 @@ class GameServiceTest {
                         move
                 );
 
-        verify(gameEngine)
-                .toFen(
-                        state
+        ArgumentCaptor<GameMove> moveCaptor =
+                ArgumentCaptor.forClass(
+                        GameMove.class
                 );
 
-        verify(gameRepository)
+        verify(gameMoveRepository)
                 .save(
-                        game
+                        moveCaptor.capture()
                 );
+
+        GameMove savedMove =
+                moveCaptor.getValue();
+
+        assertEquals(
+                game,
+                savedMove.getGame()
+        );
+
+        assertEquals(
+                1,
+                savedMove.getPlyNumber()
+        );
+
+        assertEquals(
+                "e2",
+                savedMove.getFromSquare()
+        );
+
+        assertEquals(
+                "e4",
+                savedMove.getToSquare()
+        );
+
+        assertEquals(
+                "NORMAL",
+                savedMove.getMoveType()
+        );
+
+        assertNull(
+                savedMove.getPromotionPiece()
+        );
 
         assertEquals(
                 "new-fen",
-                game.getCurrentFen()
+                savedMove.getFenAfter()
         );
 
         assertSame(
@@ -1368,6 +1403,23 @@ class GameServiceTest {
         assertSame(
                 game,
                 result
+        );
+
+        ArgumentCaptor<GameMove> moveCaptor =
+                ArgumentCaptor.forClass(
+                        GameMove.class
+                );
+
+        verify(gameMoveRepository)
+                .save(
+                        moveCaptor.capture()
+                );
+
+        assertEquals(
+                2,
+                moveCaptor
+                        .getValue()
+                        .getPlyNumber()
         );
     }
 
@@ -1828,6 +1880,88 @@ class GameServiceTest {
 
         verify(ratingService)
                 .updateRatings(game);
+    }
+
+    @Test
+    void makeMoveShouldStorePromotionPiece() {
+
+        Long gameId = 1L;
+
+        Game game =
+                createWaitingGame(
+                        challenger,
+                        opponent,
+                        TimeControl.values()[0]
+                );
+
+        setId(
+                game,
+                gameId
+        );
+
+        game.setStatus(
+                GameStatus.IN_PROGRESS
+        );
+
+        game.setCurrentFen(
+                "promotion-fen"
+        );
+
+        GameState state =
+                GameState.initial();
+
+        Move move =
+                Move.promotion(
+                        Square.fromAlgebraic("a7"),
+                        Square.fromAlgebraic("a8"),
+                        PieceType.QUEEN
+                );
+
+        when(gameRepository.findById(gameId))
+                .thenReturn(
+                        Optional.of(game)
+                );
+
+        when(gameEngine.fromFen(
+                "promotion-fen"
+        )).thenReturn(state);
+
+        when(gameEngine.toFen(state))
+                .thenReturn(
+                        "after-promotion-fen"
+                );
+
+        when(gameRepository.save(game))
+                .thenReturn(game);
+
+        gameService.makeMove(
+                gameId,
+                challenger,
+                move
+        );
+
+        ArgumentCaptor<GameMove> captor =
+                ArgumentCaptor.forClass(
+                        GameMove.class
+                );
+
+        verify(gameMoveRepository)
+                .save(
+                        captor.capture()
+                );
+
+        GameMove savedMove =
+                captor.getValue();
+
+        assertEquals(
+                "PROMOTION",
+                savedMove.getMoveType()
+        );
+
+        assertEquals(
+                "QUEEN",
+                savedMove.getPromotionPiece()
+        );
     }
 
     // =========================================================

@@ -2,6 +2,7 @@ package com.example.chessforge.service.game;
 
 import com.example.chessforge.model.entity.challenge.Challenge;
 import com.example.chessforge.model.entity.game.Game;
+import com.example.chessforge.model.entity.game.GameMove;
 import com.example.chessforge.model.entity.tournament.Tournament;
 import com.example.chessforge.model.entity.tournament.TournamentMatch;
 import com.example.chessforge.model.entity.user.User;
@@ -12,11 +13,13 @@ import com.example.chessforge.model.enums.game.GameTermination;
 import com.example.chessforge.model.enums.timeControl.TimeControl;
 import com.example.chessforge.model.enums.timeControl.TimeControlType;
 import com.example.chessforge.model.enums.tournament.TournamentMatchStatus;
+import com.example.chessforge.repository.game.GameMoveRepository;
 import com.example.chessforge.repository.game.GameRepository;
 import com.example.chessforge.service.game.engine.GameEngine;
 import com.example.chessforge.service.game.engine.model.GameState;
 import com.example.chessforge.service.game.engine.model.Move;
 import com.example.chessforge.service.game.engine.model.PieceColor;
+import com.example.chessforge.service.game.engine.model.Square;
 import com.example.chessforge.service.tournament.TournamentService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -35,6 +38,7 @@ public class GameService {
     private final RatingService ratingService;
     private final TournamentService tournamentService;
     private final GameEngine gameEngine;
+    private final GameMoveRepository gameMoveRepository;
 
     @Transactional
     public Game createGameFromChallenge(Challenge challenge) {
@@ -260,14 +264,30 @@ public class GameService {
                 state
         );
 
+        int plyNumber =
+                calculatePlyNumber(
+                        state
+                );
+
         gameEngine.makeMove(
                 state,
                 move
         );
 
-        updateGameState(
+        String newFen =
+                gameEngine.toFen(
+                        state
+                );
+
+        game.setCurrentFen(
+                newFen
+        );
+
+        saveGameMove(
                 game,
-                state
+                move,
+                plyNumber,
+                newFen
         );
 
         finishIfGameEnded(
@@ -437,5 +457,69 @@ public class GameService {
                     GameTermination.INSUFFICIENT_MATERIAL
             );
         }
+    }
+
+    private int calculatePlyNumber(
+            GameState state
+    ) {
+
+        int fullMoveNumber =
+                state.getFullMoveNumber();
+
+        return state.getSideToMove()
+                == PieceColor.WHITE
+                ? (fullMoveNumber - 1) * 2 + 1
+                : (fullMoveNumber - 1) * 2 + 2;
+    }
+
+    private void saveGameMove(
+            Game game,
+            Move move,
+            int plyNumber,
+            String fenAfter
+    ) {
+
+        GameMove gameMove =
+                GameMove.builder()
+                        .game(game)
+                        .plyNumber(plyNumber)
+                        .fromSquare(
+                                toAlgebraic(
+                                        move.from()
+                                )
+                        )
+                        .toSquare(
+                                toAlgebraic(
+                                        move.to()
+                                )
+                        )
+                        .moveType(
+                                move.type().name()
+                        )
+                        .promotionPiece(
+                                move.promotion() == null
+                                        ? null
+                                        : move.promotion().name()
+                        )
+                        .fenAfter(fenAfter)
+                        .build();
+
+        gameMoveRepository.save(
+                gameMove
+        );
+    }
+
+    private String toAlgebraic(
+            Square square
+    ) {
+
+        char file =
+                (char) ('a' + square.file());
+
+        int rank =
+                square.rank() + 1;
+
+        return String.valueOf(file)
+                + rank;
     }
 }
