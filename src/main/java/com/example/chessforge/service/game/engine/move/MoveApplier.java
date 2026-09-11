@@ -114,8 +114,10 @@ public class MoveApplier {
 
             case CASTLE_KING_SIDE,
                     CASTLE_QUEEN_SIDE ->
-                    throw new UnsupportedOperationException(
-                            "Castling is not implemented yet."
+                    applyCastling(
+                            state,
+                            move,
+                            movingPiece
                     );
         }
 
@@ -318,6 +320,132 @@ public class MoveApplier {
     }
 
     // =========================================================
+// CASTLING
+// =========================================================
+
+    private void applyCastling(
+            GameState state,
+            Move move,
+            Piece movingPiece
+    ) {
+
+        if (movingPiece.type()
+                != PieceType.KING) {
+
+            throw new IllegalStateException(
+                    "Only a king can castle."
+            );
+        }
+
+        PieceColor color =
+                movingPiece.color();
+
+        int rank =
+                color == PieceColor.WHITE
+                        ? 0
+                        : 7;
+
+        boolean kingSide =
+                move.type()
+                        == MoveType.CASTLE_KING_SIDE;
+
+        Square expectedKingFrom =
+                new Square(
+                        4,
+                        rank
+                );
+
+        Square expectedKingTo =
+                new Square(
+                        kingSide
+                                ? 6
+                                : 2,
+                        rank
+                );
+
+        Square rookFrom =
+                new Square(
+                        kingSide
+                                ? 7
+                                : 0,
+                        rank
+                );
+
+        Square rookTo =
+                new Square(
+                        kingSide
+                                ? 5
+                                : 3,
+                        rank
+                );
+
+        if (!move.from().equals(
+                expectedKingFrom
+        )
+                || !move.to().equals(
+                expectedKingTo
+        )) {
+
+            throw new IllegalStateException(
+                    "Invalid castling move."
+            );
+        }
+
+        if (!isCastlingRightAllowed(
+                state,
+                color,
+                kingSide
+        )) {
+
+            throw new IllegalStateException(
+                    "Castling right is not available."
+            );
+        }
+
+        Piece rook =
+                state.getBoard()
+                        .getPiece(
+                                rookFrom
+                        );
+
+        if (rook == null
+                || rook.type() != PieceType.ROOK
+                || rook.color() != color) {
+
+            throw new IllegalStateException(
+                    "Required rook is not available for castling."
+            );
+        }
+
+        validateCastlingPathIsEmpty(
+                state.getBoard(),
+                rank,
+                kingSide
+        );
+
+        Board board =
+                state.getBoard();
+
+        board.clearSquare(
+                expectedKingFrom
+        );
+
+        board.clearSquare(
+                rookFrom
+        );
+
+        board.setPiece(
+                expectedKingTo,
+                movingPiece
+        );
+
+        board.setPiece(
+                rookTo,
+                rook
+        );
+    }
+
+    // =========================================================
     // CASTLING RIGHTS
     // =========================================================
 
@@ -433,6 +561,78 @@ public class MoveApplier {
                         false
                 );
             }
+        }
+    }
+
+    private boolean isCastlingRightAllowed(
+            GameState state,
+            PieceColor color,
+            boolean kingSide
+    ) {
+
+        if (color == PieceColor.WHITE) {
+
+            return kingSide
+                    ? state.isWhiteKingSideCastlingAllowed()
+                    : state.isWhiteQueenSideCastlingAllowed();
+        }
+
+        return kingSide
+                ? state.isBlackKingSideCastlingAllowed()
+                : state.isBlackQueenSideCastlingAllowed();
+    }
+
+    private void validateCastlingPathIsEmpty(
+            Board board,
+            int rank,
+            boolean kingSide
+    ) {
+
+        if (kingSide) {
+
+            if (!board.isEmpty(
+                    new Square(
+                            5,
+                            rank
+                    )
+            )
+                    || !board.isEmpty(
+                    new Square(
+                            6,
+                            rank
+                    )
+            )) {
+
+                throw new IllegalStateException(
+                        "Castling path must be empty."
+                );
+            }
+
+            return;
+        }
+
+        if (!board.isEmpty(
+                new Square(
+                        1,
+                        rank
+                )
+        )
+                || !board.isEmpty(
+                new Square(
+                        2,
+                        rank
+                )
+        )
+                || !board.isEmpty(
+                new Square(
+                        3,
+                        rank
+                )
+        )) {
+
+            throw new IllegalStateException(
+                    "Castling path must be empty."
+            );
         }
     }
 

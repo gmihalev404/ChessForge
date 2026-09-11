@@ -950,6 +950,136 @@ class MoveGeneratorTest {
         );
     }
 
+    @Test
+    void kingShouldGenerateBothCastlingMovesWhenStructurallyAvailable() {
+
+        Board board =
+                new Board();
+
+        board.setPiece(
+                Square.fromAlgebraic("e1"),
+                new Piece(
+                        PieceType.KING,
+                        PieceColor.WHITE
+                )
+        );
+
+        board.setPiece(
+                Square.fromAlgebraic("a1"),
+                new Piece(
+                        PieceType.ROOK,
+                        PieceColor.WHITE
+                )
+        );
+
+        board.setPiece(
+                Square.fromAlgebraic("h1"),
+                new Piece(
+                        PieceType.ROOK,
+                        PieceColor.WHITE
+                )
+        );
+
+        GameState state =
+                new GameState(
+                        board,
+                        PieceColor.WHITE,
+                        true,
+                        true,
+                        false,
+                        false,
+                        null,
+                        0,
+                        1
+                );
+
+        List<Move> moves =
+                moveGenerator
+                        .generatePseudoLegalMoves(
+                                state,
+                                Square.fromAlgebraic(
+                                        "e1"
+                                )
+                        );
+
+        assertTrue(
+                moves.stream()
+                        .anyMatch(move ->
+                                move.type()
+                                        == MoveType.CASTLE_KING_SIDE
+                        )
+        );
+
+        assertTrue(
+                moves.stream()
+                        .anyMatch(move ->
+                                move.type()
+                                        == MoveType.CASTLE_QUEEN_SIDE
+                        )
+        );
+    }
+
+    @Test
+    void kingShouldNotGenerateCastlingThroughOccupiedSquares() {
+
+        Board board =
+                new Board();
+
+        board.setPiece(
+                Square.fromAlgebraic("e1"),
+                new Piece(
+                        PieceType.KING,
+                        PieceColor.WHITE
+                )
+        );
+
+        board.setPiece(
+                Square.fromAlgebraic("h1"),
+                new Piece(
+                        PieceType.ROOK,
+                        PieceColor.WHITE
+                )
+        );
+
+        board.setPiece(
+                Square.fromAlgebraic("f1"),
+                new Piece(
+                        PieceType.BISHOP,
+                        PieceColor.WHITE
+                )
+        );
+
+        GameState state =
+                new GameState(
+                        board,
+                        PieceColor.WHITE,
+                        true,
+                        false,
+                        false,
+                        false,
+                        null,
+                        0,
+                        1
+                );
+
+        List<Move> moves =
+                moveGenerator
+                        .generatePseudoLegalMoves(
+                                state,
+                                Square.fromAlgebraic(
+                                        "e1"
+                                )
+                        );
+
+        assertFalse(
+                moves.stream()
+                        .anyMatch(move ->
+                                move.type()
+                                        == MoveType.CASTLE_KING_SIDE
+                        )
+        );
+    }
+
     // =========================================================
     // PAWN - MOVEMENT
     // =========================================================

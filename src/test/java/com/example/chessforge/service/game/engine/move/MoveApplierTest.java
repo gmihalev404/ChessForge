@@ -382,4 +382,93 @@ class MoveApplierTest {
                 state.isWhiteQueenSideCastlingAllowed()
         );
     }
+
+    @Test
+    void kingSideCastlingShouldMoveKingAndRook() {
+
+        Board board =
+                new Board();
+
+        board.setPiece(
+                Square.fromAlgebraic("e1"),
+                new Piece(
+                        PieceType.KING,
+                        PieceColor.WHITE
+                )
+        );
+
+        board.setPiece(
+                Square.fromAlgebraic("h1"),
+                new Piece(
+                        PieceType.ROOK,
+                        PieceColor.WHITE
+                )
+        );
+
+        GameState state =
+                new GameState(
+                        board,
+                        PieceColor.WHITE,
+                        true,
+                        false,
+                        false,
+                        false,
+                        null,
+                        0,
+                        1
+                );
+
+        Move castle =
+                new Move(
+                        Square.fromAlgebraic("e1"),
+                        Square.fromAlgebraic("g1"),
+                        MoveType.CASTLE_KING_SIDE,
+                        null
+                );
+
+        moveApplier.apply(
+                state,
+                castle
+        );
+
+        assertTrue(
+                board.isEmpty(
+                        Square.fromAlgebraic("e1")
+                )
+        );
+
+        assertTrue(
+                board.isEmpty(
+                        Square.fromAlgebraic("h1")
+                )
+        );
+
+        assertEquals(
+                new Piece(
+                        PieceType.KING,
+                        PieceColor.WHITE
+                ),
+                board.getPiece(
+                        Square.fromAlgebraic("g1")
+                )
+        );
+
+        assertEquals(
+                new Piece(
+                        PieceType.ROOK,
+                        PieceColor.WHITE
+                ),
+                board.getPiece(
+                        Square.fromAlgebraic("f1")
+                )
+        );
+
+        assertFalse(
+                state.isWhiteKingSideCastlingAllowed()
+        );
+
+        assertFalse(
+                state.isWhiteQueenSideCastlingAllowed()
+        );
+    }
 }

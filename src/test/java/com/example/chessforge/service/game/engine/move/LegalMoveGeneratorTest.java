@@ -474,6 +474,274 @@ class LegalMoveGeneratorTest {
         );
     }
 
+    @Test
+    void kingShouldCastleWhenPathIsSafe() {
+
+        Board board =
+                new Board();
+
+        board.setPiece(
+                Square.fromAlgebraic("e1"),
+                new Piece(
+                        PieceType.KING,
+                        PieceColor.WHITE
+                )
+        );
+
+        board.setPiece(
+                Square.fromAlgebraic("h1"),
+                new Piece(
+                        PieceType.ROOK,
+                        PieceColor.WHITE
+                )
+        );
+
+        board.setPiece(
+                Square.fromAlgebraic("a8"),
+                new Piece(
+                        PieceType.KING,
+                        PieceColor.BLACK
+                )
+        );
+
+        GameState state =
+                new GameState(
+                        board,
+                        PieceColor.WHITE,
+                        true,
+                        false,
+                        false,
+                        false,
+                        null,
+                        0,
+                        1
+                );
+
+        List<Move> moves =
+                legalMoveGenerator
+                        .generateLegalMoves(
+                                state,
+                                Square.fromAlgebraic(
+                                        "e1"
+                                )
+                        );
+
+        assertTrue(
+                moves.stream()
+                        .anyMatch(move ->
+                                move.type()
+                                        == MoveType.CASTLE_KING_SIDE
+                        )
+        );
+    }
+
+    @Test
+    void kingShouldNotCastleWhileInCheck() {
+
+        Board board =
+                new Board();
+
+        board.setPiece(
+                Square.fromAlgebraic("e1"),
+                new Piece(
+                        PieceType.KING,
+                        PieceColor.WHITE
+                )
+        );
+
+        board.setPiece(
+                Square.fromAlgebraic("h1"),
+                new Piece(
+                        PieceType.ROOK,
+                        PieceColor.WHITE
+                )
+        );
+
+        board.setPiece(
+                Square.fromAlgebraic("e8"),
+                new Piece(
+                        PieceType.ROOK,
+                        PieceColor.BLACK
+                )
+        );
+
+        board.setPiece(
+                Square.fromAlgebraic("a8"),
+                new Piece(
+                        PieceType.KING,
+                        PieceColor.BLACK
+                )
+        );
+
+        GameState state =
+                new GameState(
+                        board,
+                        PieceColor.WHITE,
+                        true,
+                        false,
+                        false,
+                        false,
+                        null,
+                        0,
+                        1
+                );
+
+        List<Move> moves =
+                legalMoveGenerator
+                        .generateLegalMoves(
+                                state,
+                                Square.fromAlgebraic("e1")
+                        );
+
+        assertFalse(
+                moves.stream()
+                        .anyMatch(move ->
+                                move.type()
+                                        == MoveType.CASTLE_KING_SIDE
+                        )
+        );
+    }
+
+    @Test
+    void kingShouldNotCastleThroughAttackedSquare() {
+
+        Board board =
+                new Board();
+
+        board.setPiece(
+                Square.fromAlgebraic("e1"),
+                new Piece(
+                        PieceType.KING,
+                        PieceColor.WHITE
+                )
+        );
+
+        board.setPiece(
+                Square.fromAlgebraic("h1"),
+                new Piece(
+                        PieceType.ROOK,
+                        PieceColor.WHITE
+                )
+        );
+
+        /*
+         * Attacks f1.
+         */
+        board.setPiece(
+                Square.fromAlgebraic("f8"),
+                new Piece(
+                        PieceType.ROOK,
+                        PieceColor.BLACK
+                )
+        );
+
+        board.setPiece(
+                Square.fromAlgebraic("a8"),
+                new Piece(
+                        PieceType.KING,
+                        PieceColor.BLACK
+                )
+        );
+
+        GameState state =
+                new GameState(
+                        board,
+                        PieceColor.WHITE,
+                        true,
+                        false,
+                        false,
+                        false,
+                        null,
+                        0,
+                        1
+                );
+
+        List<Move> moves =
+                legalMoveGenerator
+                        .generateLegalMoves(
+                                state,
+                                Square.fromAlgebraic("e1")
+                        );
+
+        assertFalse(
+                moves.stream()
+                        .anyMatch(move ->
+                                move.type()
+                                        == MoveType.CASTLE_KING_SIDE
+                        )
+        );
+    }
+
+    @Test
+    void kingShouldNotCastleIntoCheck() {
+
+        Board board =
+                new Board();
+
+        board.setPiece(
+                Square.fromAlgebraic("e1"),
+                new Piece(
+                        PieceType.KING,
+                        PieceColor.WHITE
+                )
+        );
+
+        board.setPiece(
+                Square.fromAlgebraic("h1"),
+                new Piece(
+                        PieceType.ROOK,
+                        PieceColor.WHITE
+                )
+        );
+
+        /*
+         * Attacks g1.
+         */
+        board.setPiece(
+                Square.fromAlgebraic("g8"),
+                new Piece(
+                        PieceType.ROOK,
+                        PieceColor.BLACK
+                )
+        );
+
+        board.setPiece(
+                Square.fromAlgebraic("a8"),
+                new Piece(
+                        PieceType.KING,
+                        PieceColor.BLACK
+                )
+        );
+
+        GameState state =
+                new GameState(
+                        board,
+                        PieceColor.WHITE,
+                        true,
+                        false,
+                        false,
+                        false,
+                        null,
+                        0,
+                        1
+                );
+
+        List<Move> moves =
+                legalMoveGenerator
+                        .generateLegalMoves(
+                                state,
+                                Square.fromAlgebraic("e1")
+                        );
+
+        assertFalse(
+                moves.stream()
+                        .anyMatch(move ->
+                                move.type()
+                                        == MoveType.CASTLE_KING_SIDE
+                        )
+        );
+    }
+
     // =========================================================
     // HELPERS
     // =========================================================

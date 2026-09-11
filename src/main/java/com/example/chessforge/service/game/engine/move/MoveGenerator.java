@@ -141,7 +141,7 @@ public class MoveGenerator {
 
             case KING ->
                     generateKingMoves(
-                            state.getBoard(),
+                            state,
                             from,
                             piece.color()
                     );
@@ -343,10 +343,13 @@ public class MoveGenerator {
     // =========================================================
 
     private List<Move> generateKingMoves(
-            Board board,
+            GameState state,
             Square from,
             PieceColor color
     ) {
+
+        Board board =
+                state.getBoard();
 
         List<Move> moves =
                 new ArrayList<>();
@@ -394,6 +397,13 @@ public class MoveGenerator {
                 );
             }
         }
+
+        generateCastlingMoves(
+                state,
+                from,
+                color,
+                moves
+        );
 
         return List.copyOf(
                 moves
@@ -731,5 +741,174 @@ public class MoveGenerator {
         return targetPiece != null
                 && targetPiece.color() != movingColor
                 && targetPiece.type() != PieceType.KING;
+    }
+
+    private void generateCastlingMoves(
+            GameState state,
+            Square from,
+            PieceColor color,
+            List<Move> moves
+    ) {
+
+        int rank =
+                color == PieceColor.WHITE
+                        ? 0
+                        : 7;
+
+        Square kingStart =
+                new Square(
+                        4,
+                        rank
+                );
+
+        if (!from.equals(
+                kingStart
+        )) {
+
+            return;
+        }
+
+        if (canCastleStructurally(
+                state,
+                color,
+                true
+        )) {
+
+            moves.add(
+                    new Move(
+                            from,
+                            new Square(
+                                    6,
+                                    rank
+                            ),
+                            MoveType.CASTLE_KING_SIDE,
+                            null
+                    )
+            );
+        }
+
+        if (canCastleStructurally(
+                state,
+                color,
+                false
+        )) {
+
+            moves.add(
+                    new Move(
+                            from,
+                            new Square(
+                                    2,
+                                    rank
+                            ),
+                            MoveType.CASTLE_QUEEN_SIDE,
+                            null
+                    )
+            );
+        }
+    }
+
+    private boolean canCastleStructurally(
+            GameState state,
+            PieceColor color,
+            boolean kingSide
+    ) {
+
+        Board board =
+                state.getBoard();
+
+        int rank =
+                color == PieceColor.WHITE
+                        ? 0
+                        : 7;
+
+        boolean castlingRight =
+                kingSide
+                        ? color == PieceColor.WHITE
+                        ? state.isWhiteKingSideCastlingAllowed()
+                        : state.isBlackKingSideCastlingAllowed()
+                        : color == PieceColor.WHITE
+                        ? state.isWhiteQueenSideCastlingAllowed()
+                        : state.isBlackQueenSideCastlingAllowed();
+
+        if (!castlingRight) {
+
+            return false;
+        }
+
+        Square kingSquare =
+                new Square(
+                        4,
+                        rank
+                );
+
+        Piece king =
+                board.getPiece(
+                        kingSquare
+                );
+
+        if (king == null
+                || king.type() != PieceType.KING
+                || king.color() != color) {
+
+            return false;
+        }
+
+        int rookFile =
+                kingSide
+                        ? 7
+                        : 0;
+
+        Square rookSquare =
+                new Square(
+                        rookFile,
+                        rank
+                );
+
+        Piece rook =
+                board.getPiece(
+                        rookSquare
+                );
+
+        if (rook == null
+                || rook.type() != PieceType.ROOK
+                || rook.color() != color) {
+
+            return false;
+        }
+
+        if (kingSide) {
+
+            return board.isEmpty(
+                    new Square(
+                            5,
+                            rank
+                    )
+            )
+                    && board.isEmpty(
+                    new Square(
+                            6,
+                            rank
+                    )
+            );
+        }
+
+        return board.isEmpty(
+                new Square(
+                        1,
+                        rank
+                )
+        )
+                && board.isEmpty(
+                new Square(
+                        2,
+                        rank
+                )
+        )
+                && board.isEmpty(
+                new Square(
+                        3,
+                        rank
+                )
+        );
     }
 }

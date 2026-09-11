@@ -78,6 +78,16 @@ public class LegalMoveGenerator {
         for (Move move :
                 pseudoLegalMoves) {
 
+            if (isCastling(move)
+                    && !isCastlingPathSafe(
+                    state,
+                    move,
+                    movingColor
+            )) {
+
+                continue;
+            }
+
             GameState simulation =
                     state.copy();
 
@@ -86,11 +96,6 @@ public class LegalMoveGenerator {
                     move
             );
 
-            /*
-             * MoveApplier switches sideToMove,
-             * therefore we explicitly check
-             * the color that made the move.
-             */
             if (!attackDetector.isInCheck(
                     simulation,
                     movingColor
@@ -166,6 +171,79 @@ public class LegalMoveGenerator {
 
         return List.copyOf(
                 moves
+        );
+    }
+
+    // =========================================================
+    // HELPERS
+    // =========================================================
+
+    private boolean isCastling(
+            Move move
+    ) {
+
+        return move.type()
+                == MoveType.CASTLE_KING_SIDE
+                || move.type()
+                == MoveType.CASTLE_QUEEN_SIDE;
+    }
+
+    private boolean isCastlingPathSafe(
+            GameState state,
+            Move move,
+            PieceColor color
+    ) {
+
+        /*
+         * A king cannot castle while
+         * already in check.
+         */
+        if (attackDetector.isInCheck(
+                state,
+                color
+        )) {
+
+            return false;
+        }
+
+        int rank =
+                color == PieceColor.WHITE
+                        ? 0
+                        : 7;
+
+        int transitFile =
+                move.type()
+                        == MoveType.CASTLE_KING_SIDE
+                        ? 5
+                        : 3;
+
+        Square transit =
+                new Square(
+                        transitFile,
+                        rank
+                );
+
+        /*
+         * Simulate the king moving through
+         * the intermediate square.
+         */
+        GameState transitState =
+                state.copy();
+
+        Move transitMove =
+                new Move(
+                        move.from(),
+                        transit
+                );
+
+        moveApplier.apply(
+                transitState,
+                transitMove
+        );
+
+        return !attackDetector.isInCheck(
+                transitState,
+                color
         );
     }
 }
