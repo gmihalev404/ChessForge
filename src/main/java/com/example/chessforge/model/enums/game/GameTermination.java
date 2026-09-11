@@ -10,5 +10,6 @@ public enum GameTermination {
     FIVEFOLD_REPETITION,
     FIFTY_MOVE_RULE,
     AGREEMENT,
-    ABORTED
+    ABORTED,
+    SEVENTY_FIVE_MOVE_RULE
 }

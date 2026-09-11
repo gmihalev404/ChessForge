@@ -513,6 +513,38 @@ class PositionEvaluatorTest {
         );
     }
 
+    @Test
+    void shouldDetectSeventyFiveMoveRuleAtOneHundredFiftyHalfMoves() {
+
+        GameState state =
+                GameState.initial();
+
+        state.setHalfMoveClock(150);
+
+        assertTrue(
+                positionEvaluator
+                        .isSeventyFiveMoveRuleDraw(
+                                state
+                        )
+        );
+    }
+
+    @Test
+    void shouldNotDetectSeventyFiveMoveRuleBeforeOneHundredFiftyHalfMoves() {
+
+        GameState state =
+                GameState.initial();
+
+        state.setHalfMoveClock(149);
+
+        assertFalse(
+                positionEvaluator
+                        .isSeventyFiveMoveRuleDraw(
+                                state
+                        )
+        );
+    }
+
     // =========================================================
     // HELPERS
     // =========================================================

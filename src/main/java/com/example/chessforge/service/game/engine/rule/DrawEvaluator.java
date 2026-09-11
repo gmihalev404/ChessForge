@@ -69,6 +69,15 @@ public class DrawEvaluator {
             );
         }
 
+        if (positionEvaluator.isSeventyFiveMoveRuleDraw(
+                state
+        )) {
+
+            reasons.add(
+                    DrawReason.SEVENTY_FIVE_MOVE_RULE
+            );
+        }
+
         return Set.copyOf(
                 reasons
         );

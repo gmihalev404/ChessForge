@@ -204,6 +204,18 @@ public class PositionEvaluator {
         return false;
     }
 
+    public boolean isSeventyFiveMoveRuleDraw(
+            GameState state
+    ) {
+
+        Objects.requireNonNull(
+                state,
+                "Game state cannot be null."
+        );
+
+        return state.getHalfMoveClock() >= 150;
+    }
+
     // =========================================================
     // HELPERS
     // =========================================================

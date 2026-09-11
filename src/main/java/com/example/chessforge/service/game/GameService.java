@@ -484,6 +484,24 @@ public class GameService {
                     GameTermination.FIVEFOLD_REPETITION
             );
         }
+
+        if (gameEngine
+                .getAutomaticDrawReasons(
+                        state,
+                        repetitionTracker
+                )
+                .contains(
+                        DrawReason.SEVENTY_FIVE_MOVE_RULE
+                )) {
+
+            finishGame(
+                    game,
+                    GameResult.DRAW,
+                    GameTermination.SEVENTY_FIVE_MOVE_RULE
+            );
+
+            return;
+        }
     }
 
     private int calculatePlyNumber(
