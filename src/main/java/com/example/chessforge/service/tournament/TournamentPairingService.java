@@ -1,11 +1,11 @@
 package com.example.chessforge.service.tournament;
 
-import com.example.chessforge.model.entity.Tournament;
-import com.example.chessforge.model.entity.TournamentMatch;
-import com.example.chessforge.model.entity.TournamentParticipant;
-import com.example.chessforge.model.enums.TournamentMatchStatus;
-import com.example.chessforge.model.enums.TournamentMatchType;
-import com.example.chessforge.model.enums.TournamentParticipantStatus;
+import com.example.chessforge.model.entity.tournament.Tournament;
+import com.example.chessforge.model.entity.tournament.TournamentMatch;
+import com.example.chessforge.model.entity.tournament.TournamentParticipant;
+import com.example.chessforge.model.enums.tournament.TournamentMatchStatus;
+import com.example.chessforge.model.enums.tournament.TournamentMatchType;
+import com.example.chessforge.model.enums.tournament.TournamentParticipantStatus;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;

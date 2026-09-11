@@ -1,11 +1,13 @@
 package com.example.chessforge.service.tournament;
 
-import com.example.chessforge.model.entity.BaseEntity;
-import com.example.chessforge.model.entity.Tournament;
-import com.example.chessforge.model.entity.TournamentMatch;
-import com.example.chessforge.model.entity.TournamentParticipant;
-import com.example.chessforge.model.entity.User;
-import com.example.chessforge.model.enums.*;
+import com.example.chessforge.model.entity.common.BaseEntity;
+import com.example.chessforge.model.entity.tournament.Tournament;
+import com.example.chessforge.model.entity.tournament.TournamentMatch;
+import com.example.chessforge.model.entity.tournament.TournamentParticipant;
+import com.example.chessforge.model.entity.user.User;
+import com.example.chessforge.model.enums.timeControl.TimeControl;
+import com.example.chessforge.model.enums.tournament.*;
+import com.example.chessforge.model.enums.user.UserStatus;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
