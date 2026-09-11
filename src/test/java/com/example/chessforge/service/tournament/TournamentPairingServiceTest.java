@@ -88,6 +88,14 @@ class TournamentPairingServiceTest {
                                         == TournamentMatchStatus.PENDING
                         )
         );
+
+        assertTrue(
+                matches.stream()
+                        .allMatch(match ->
+                                match.getType()
+                                        == TournamentMatchType.MAIN
+                        )
+        );
     }
 
     @Test
@@ -337,7 +345,7 @@ class TournamentPairingServiceTest {
     }
 
     @Test
-    void nextSingleEliminationRoundShouldUseOnlyPreviousRoundFromHistory() {
+    void nextSingleEliminationRoundShouldCreateFinalAndThirdPlaceMatch() {
 
         List<TournamentParticipant> participants =
                 createParticipants(8);
@@ -348,7 +356,16 @@ class TournamentPairingServiceTest {
                         participants
                 );
 
+        /*
+         * Quarterfinal winners:
+         *
+         * 1 vs 8 -> 1
+         * 4 vs 5 -> 4
+         * 2 vs 7 -> 2
+         * 3 vs 6 -> 3
+         */
         for (TournamentMatch match : round1) {
+
             completeWithWinner(
                     match,
                     Math.min(
@@ -366,15 +383,21 @@ class TournamentPairingServiceTest {
                         2
                 );
 
-        for (TournamentMatch match : round2) {
-            completeWithWinner(
-                    match,
-                    Math.min(
-                            match.getWhiteParticipant().getSeed(),
-                            match.getBlackParticipant().getSeed()
-                    )
-            );
-        }
+        /*
+         * Semifinals:
+         *
+         * 1 vs 4 -> 1
+         * 2 vs 3 -> 2
+         */
+        completeWithWinner(
+                getBoard(round2, 1),
+                1
+        );
+
+        completeWithWinner(
+                getBoard(round2, 2),
+                2
+        );
 
         List<TournamentMatch> fullHistory =
                 new ArrayList<>();
@@ -391,14 +414,132 @@ class TournamentPairingServiceTest {
                 );
 
         assertEquals(
+                2,
+                finalRound.size()
+        );
+
+        // =========================================================
+        // FINAL
+        // =========================================================
+
+        TournamentMatch finalMatch =
+                getBoard(
+                        finalRound,
+                        1
+                );
+
+        assertEquals(
+                TournamentMatchType.MAIN,
+                finalMatch.getType()
+        );
+
+        assertContainsPair(
+                finalMatch,
+                1,
+                2
+        );
+
+        // =========================================================
+        // THIRD PLACE
+        // =========================================================
+
+        TournamentMatch thirdPlaceMatch =
+                getBoard(
+                        finalRound,
+                        2
+                );
+
+        assertEquals(
+                TournamentMatchType.THIRD_PLACE,
+                thirdPlaceMatch.getType()
+        );
+
+        assertContainsPair(
+                thirdPlaceMatch,
+                4,
+                3
+        );
+    }
+
+    @Test
+    void threePlayerSingleEliminationShouldCreateOnlyFinal() {
+
+        List<TournamentParticipant> participants =
+                createParticipants(3);
+
+        List<TournamentMatch> firstRound =
+                pairingService.createInitialPairings(
+                        tournament,
+                        participants
+                );
+
+        TournamentMatch bye =
+                findBye(
+                        firstRound
+                );
+
+        /*
+         * PairingService does not itself resolve BYEs,
+         * so simulate TournamentService resolving it.
+         */
+        bye.setStatus(
+                TournamentMatchStatus.COMPLETED
+        );
+
+        bye.setWhiteScore(
+                1.0
+        );
+
+        TournamentMatch semifinal =
+                firstRound.stream()
+                        .filter(match ->
+                                match.getBlackParticipant()
+                                        != null
+                        )
+                        .findFirst()
+                        .orElseThrow();
+
+        /*
+         * With three seeds the real semifinal is 2 vs 3.
+         */
+        completeWithWinner(
+                semifinal,
+                2
+        );
+
+        List<TournamentMatch> finalRound =
+                pairingService.createNextRound(
+                        tournament,
+                        participants,
+                        firstRound,
+                        2
+                );
+
+        assertEquals(
                 1,
                 finalRound.size()
         );
 
+        TournamentMatch finalMatch =
+                finalRound.get(0);
+
+        assertEquals(
+                TournamentMatchType.MAIN,
+                finalMatch.getType()
+        );
+
         assertContainsPair(
-                finalRound.get(0),
+                finalMatch,
                 1,
                 2
+        );
+
+        assertTrue(
+                finalRound.stream()
+                        .noneMatch(match ->
+                                match.getType()
+                                        == TournamentMatchType.THIRD_PLACE
+                        )
         );
     }
 

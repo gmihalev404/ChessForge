@@ -109,11 +109,17 @@ public class TournamentService {
                 .armageddonForFirstPlaceTie(
                         armageddonForFirstPlaceTie
                 )
-                .status(TournamentStatus.REGISTRATION)
-                .numberOfRounds(numberOfRounds)
+                .status(
+                        TournamentStatus.REGISTRATION
+                )
+                .numberOfRounds(
+                        numberOfRounds
+                )
                 .build();
 
-        return tournamentRepository.save(tournament);
+        return tournamentRepository.save(
+                tournament
+        );
     }
 
     // =========================================================
@@ -159,15 +165,23 @@ public class TournamentService {
 
         TournamentParticipant participant =
                 TournamentParticipant.builder()
-                        .tournament(tournament)
-                        .user(user)
-                        .score(0.0)
+                        .tournament(
+                                tournament
+                        )
+                        .user(
+                                user
+                        )
+                        .score(
+                                0.0
+                        )
                         .status(
                                 TournamentParticipantStatus.ACTIVE
                         )
                         .build();
 
-        return participantRepository.save(participant);
+        return participantRepository.save(
+                participant
+        );
     }
 
     // =========================================================
@@ -189,7 +203,10 @@ public class TournamentService {
         }
 
         TournamentParticipant participant =
-                getParticipant(tournament, user);
+                getParticipant(
+                        tournament,
+                        user
+                );
 
         if (participant.getStatus()
                 != TournamentParticipantStatus.ACTIVE) {
@@ -223,19 +240,10 @@ public class TournamentService {
         }
 
         TournamentParticipant participant =
-                getParticipant(tournament, user);
-
-        if (participant.getStatus()
-                != TournamentParticipantStatus.ACTIVE) {
-
-            throw new IllegalStateException(
-                    "Participant is not active."
-            );
-        }
-
-        participant.setStatus(
-                TournamentParticipantStatus.FORFEITED
-        );
+                getParticipant(
+                        tournament,
+                        user
+                );
 
         List<TournamentMatch> currentRoundMatches =
                 matchRepository
@@ -243,6 +251,34 @@ public class TournamentService {
                                 tournament,
                                 tournament.getCurrentRound()
                         );
+
+        boolean activeParticipant =
+                participant.getStatus()
+                        == TournamentParticipantStatus.ACTIVE;
+
+        boolean thirdPlaceParticipant =
+                tournament.getFormat()
+                        == TournamentFormat.SINGLE_ELIMINATION
+                        &&
+                        participant.getStatus()
+                                == TournamentParticipantStatus.ELIMINATED
+                        &&
+                        isCurrentThirdPlaceParticipant(
+                                participant,
+                                currentRoundMatches
+                        );
+
+        if (!activeParticipant
+                && !thirdPlaceParticipant) {
+
+            throw new IllegalStateException(
+                    "Participant cannot forfeit from the current tournament state."
+            );
+        }
+
+        participant.setStatus(
+                TournamentParticipantStatus.FORFEITED
+        );
 
         resolveAutomaticResults(
                 tournament,
@@ -264,7 +300,10 @@ public class TournamentService {
             User requester
     ) {
 
-        validateCreator(tournament, requester);
+        validateCreator(
+                tournament,
+                requester
+        );
 
         if (tournament.getStatus()
                 == TournamentStatus.FINISHED) {
@@ -288,7 +327,7 @@ public class TournamentService {
     }
 
     // =========================================================
-    // START
+    // START TOURNAMENT
     // =========================================================
 
     @Transactional
@@ -297,7 +336,10 @@ public class TournamentService {
             User requester
     ) {
 
-        validateCreator(tournament, requester);
+        validateCreator(
+                tournament,
+                requester
+        );
 
         if (tournament.getStatus()
                 != TournamentStatus.REGISTRATION) {
@@ -308,7 +350,9 @@ public class TournamentService {
         }
 
         List<TournamentParticipant> participants =
-                getActiveParticipants(tournament);
+                getActiveParticipants(
+                        tournament
+                );
 
         validateTournamentCanStart(
                 tournament,
@@ -321,18 +365,23 @@ public class TournamentService {
         );
 
         List<TournamentMatch> matches =
-                pairingService.createInitialPairings(
-                        tournament,
-                        participants
-                );
+                pairingService
+                        .createInitialPairings(
+                                tournament,
+                                participants
+                        );
 
-        matchRepository.saveAll(matches);
+        matchRepository.saveAll(
+                matches
+        );
 
         tournament.setStatus(
                 TournamentStatus.IN_PROGRESS
         );
 
-        tournament.setCurrentRound(1);
+        tournament.setCurrentRound(
+                1
+        );
 
         resolveAutomaticResults(
                 tournament,
@@ -345,6 +394,10 @@ public class TournamentService {
 
         return matches;
     }
+
+    // =========================================================
+    // NEXT ROUND
+    // =========================================================
 
     @Transactional
     public List<TournamentMatch> startNextRound(
@@ -366,23 +419,24 @@ public class TournamentService {
             );
         }
 
-        // =========================================================
+        // =====================================================
         // SWISS - LAST ROUND CHECK
-        // =========================================================
+        // =====================================================
 
         if (tournament.getFormat()
                 == TournamentFormat.SWISS
-                && tournament.getCurrentRound()
-                >= tournament.getNumberOfRounds()) {
+                &&
+                tournament.getCurrentRound()
+                        >= tournament.getNumberOfRounds()) {
 
             throw new IllegalStateException(
                     "The Swiss tournament has no more rounds."
             );
         }
 
-        // =========================================================
+        // =====================================================
         // CURRENT ROUND MUST BE FINISHED
-        // =========================================================
+        // =====================================================
 
         validateCurrentRoundCompleted(
                 tournament
@@ -393,16 +447,16 @@ public class TournamentService {
 
         List<TournamentMatch> matches;
 
-        // =========================================================
+        // =====================================================
         // ROUND ROBIN
-        // =========================================================
+        // =====================================================
 
         if (tournament.getFormat()
                 == TournamentFormat.ROUND_ROBIN) {
 
             /*
-             * Round-robin pairings already exist.
-             * We only activate the next part of the schedule.
+             * The complete round-robin schedule
+             * already exists.
              */
             matches =
                     matchRepository
@@ -419,9 +473,9 @@ public class TournamentService {
             }
         }
 
-        // =========================================================
+        // =====================================================
         // SINGLE ELIMINATION / SWISS
-        // =========================================================
+        // =====================================================
 
         else {
 
@@ -432,13 +486,13 @@ public class TournamentService {
                             );
 
             /*
-             * Swiss needs the COMPLETE history:
+             * Swiss uses the complete history for:
              * - rematches
-             * - previous colors
-             * - previous BYEs
+             * - colors
+             * - BYEs
              *
-             * Single elimination will internally select
-             * only the previous round from this history.
+             * Single elimination selects the
+             * previous round internally.
              */
             List<TournamentMatch> matchHistory =
                     matchRepository
@@ -447,34 +501,27 @@ public class TournamentService {
                             );
 
             matches =
-                    pairingService.createNextRound(
-                            tournament,
-                            participants,
-                            matchHistory,
-                            nextRoundNumber
-                    );
+                    pairingService
+                            .createNextRound(
+                                    tournament,
+                                    participants,
+                                    matchHistory,
+                                    nextRoundNumber
+                            );
 
             matchRepository.saveAll(
                     matches
             );
         }
 
-        // =========================================================
+        // =====================================================
         // ACTIVATE ROUND
-        // =========================================================
+        // =====================================================
 
         tournament.setCurrentRound(
                 nextRoundNumber
         );
 
-        /*
-         * Resolve only automatic results belonging
-         * to the newly started round.
-         *
-         * Examples:
-         * - BYE
-         * - already FORFEITED participant
-         */
         resolveAutomaticResults(
                 tournament,
                 matches
@@ -496,7 +543,9 @@ public class TournamentService {
     ) {
 
         return participantRepository
-                .findByTournament(tournament);
+                .findByTournament(
+                        tournament
+                );
     }
 
     public List<TournamentParticipant> getStandings(
@@ -505,18 +554,27 @@ public class TournamentService {
 
         List<TournamentParticipant> participants =
                 participantRepository
-                        .findByTournament(tournament);
+                        .findByTournament(
+                                tournament
+                        );
 
         List<TournamentMatch> matches =
                 matchRepository
-                        .findByTournament(tournament);
+                        .findByTournament(
+                                tournament
+                        );
 
-        return leaderboardService.calculateStandings(
-                tournament,
-                participants,
-                matches
-        );
+        return leaderboardService
+                .calculateStandings(
+                        tournament,
+                        participants,
+                        matches
+                );
     }
+
+    // =========================================================
+    // RECORD GAME RESULT
+    // =========================================================
 
     @Transactional
     public void recordGameResult(
@@ -524,18 +582,22 @@ public class TournamentService {
     ) {
 
         if (game.getTournamentMatch() == null) {
+
             throw new IllegalArgumentException(
                     "Game does not belong to a tournament match."
             );
         }
 
-        if (game.getStatus() != GameStatus.FINISHED) {
+        if (game.getStatus()
+                != GameStatus.FINISHED) {
+
             throw new IllegalStateException(
                     "Only a finished game can update a tournament match."
             );
         }
 
         if (game.getResult() == null) {
+
             throw new IllegalStateException(
                     "Finished game must have a result."
             );
@@ -585,7 +647,7 @@ public class TournamentService {
     }
 
     // =========================================================
-    // HELPERS
+    // SEEDING
     // =========================================================
 
     private void assignSeeds(
@@ -594,19 +656,22 @@ public class TournamentService {
     ) {
 
         TimeControlType type =
-                tournament.getTimeControl().getType();
+                tournament
+                        .getTimeControl()
+                        .getType();
 
         /*
-         * Snapshot the rating exactly once,
-         * when the tournament starts.
+         * Snapshot rating when the tournament starts.
          */
-        for (TournamentParticipant participant : participants) {
+        for (TournamentParticipant participant
+                : participants) {
 
             int rating =
-                    ratingService.getRating(
-                            participant.getUser(),
-                            type
-                    );
+                    ratingService
+                            .getRating(
+                                    participant.getUser(),
+                                    type
+                            );
 
             participant.setRatingAtStart(
                     rating
@@ -614,7 +679,9 @@ public class TournamentService {
         }
 
         List<TournamentParticipant> sorted =
-                new ArrayList<>(participants);
+                new ArrayList<>(
+                        participants
+                );
 
         sorted.sort(
                 Comparator
@@ -625,23 +692,33 @@ public class TournamentService {
                         .reversed()
                         .thenComparing(
                                 participant ->
-                                        participant.getUser()
+                                        participant
+                                                .getUser()
                                                 .getUsername(),
                                 String.CASE_INSENSITIVE_ORDER
                         )
                         .thenComparing(
                                 participant ->
-                                        participant.getUser()
+                                        participant
+                                                .getUser()
                                                 .getId()
                         )
         );
 
-        for (int i = 0; i < sorted.size(); i++) {
-            sorted.get(i).setSeed(
-                    i + 1
-            );
+        for (int i = 0;
+             i < sorted.size();
+             i++) {
+
+            sorted.get(i)
+                    .setSeed(
+                            i + 1
+                    );
         }
     }
+
+    // =========================================================
+    // PARTICIPANT HELPERS
+    // =========================================================
 
     private boolean isFull(
             Tournament tournament
@@ -668,7 +745,9 @@ public class TournamentService {
     ) {
 
         return participantRepository
-                .findByTournament(tournament)
+                .findByTournament(
+                        tournament
+                )
                 .stream()
                 .filter(participant ->
                         participant.getStatus()
@@ -699,9 +778,12 @@ public class TournamentService {
             User requester
     ) {
 
-        if (!tournament.getCreator()
+        if (!tournament
+                .getCreator()
                 .getId()
-                .equals(requester.getId())) {
+                .equals(
+                        requester.getId()
+                )) {
 
             throw new IllegalStateException(
                     "Only the tournament creator can perform this action."
@@ -709,18 +791,9 @@ public class TournamentService {
         }
     }
 
-    private int determineNextRoundNumber(
-            Tournament tournament
-    ) {
-
-        return matchRepository
-                .findByTournament(tournament)
-                .stream()
-                .map(TournamentMatch::getRoundNumber)
-                .max(Integer::compareTo)
-                .orElse(0)
-                + 1;
-    }
+    // =========================================================
+    // AUTOMATIC RESULTS
+    // =========================================================
 
     private void resolveAutomaticResults(
             Tournament tournament,
@@ -731,6 +804,7 @@ public class TournamentService {
 
             if (match.getStatus()
                     != TournamentMatchStatus.PENDING) {
+
                 continue;
             }
 
@@ -740,9 +814,9 @@ public class TournamentService {
             TournamentParticipant black =
                     match.getBlackParticipant();
 
-            // =====================================================
+            // =================================================
             // TRUE BYE
-            // =====================================================
+            // =================================================
 
             if (black == null) {
 
@@ -752,8 +826,13 @@ public class TournamentService {
                                 ? tournament.getByePoints()
                                 : 0.0;
 
-                match.setWhiteScore(points);
-                match.setBlackScore(null);
+                match.setWhiteScore(
+                        points
+                );
+
+                match.setBlackScore(
+                        null
+                );
 
                 match.setTermination(
                         TournamentMatchTermination.BYE
@@ -763,7 +842,10 @@ public class TournamentService {
                         TournamentMatchStatus.COMPLETED
                 );
 
-                addScore(white, points);
+                addScore(
+                        white,
+                        points
+                );
 
                 continue;
             }
@@ -776,14 +858,20 @@ public class TournamentService {
                     black.getStatus()
                             == TournamentParticipantStatus.FORFEITED;
 
-            // =====================================================
+            // =================================================
             // DOUBLE FORFEIT
-            // =====================================================
+            // =================================================
 
-            if (whiteForfeited && blackForfeited) {
+            if (whiteForfeited
+                    && blackForfeited) {
 
-                match.setWhiteScore(0.0);
-                match.setBlackScore(0.0);
+                match.setWhiteScore(
+                        0.0
+                );
+
+                match.setBlackScore(
+                        0.0
+                );
 
                 match.setTermination(
                         TournamentMatchTermination.DOUBLE_FORFEIT
@@ -796,14 +884,19 @@ public class TournamentService {
                 continue;
             }
 
-            // =====================================================
+            // =================================================
             // WHITE FORFEIT
-            // =====================================================
+            // =================================================
 
             if (whiteForfeited) {
 
-                match.setWhiteScore(0.0);
-                match.setBlackScore(1.0);
+                match.setWhiteScore(
+                        0.0
+                );
+
+                match.setBlackScore(
+                        1.0
+                );
 
                 match.setTermination(
                         TournamentMatchTermination.WHITE_FORFEIT
@@ -813,19 +906,27 @@ public class TournamentService {
                         TournamentMatchStatus.COMPLETED
                 );
 
-                addScore(black, 1.0);
+                addScore(
+                        black,
+                        1.0
+                );
 
                 continue;
             }
 
-            // =====================================================
+            // =================================================
             // BLACK FORFEIT
-            // =====================================================
+            // =================================================
 
             if (blackForfeited) {
 
-                match.setWhiteScore(1.0);
-                match.setBlackScore(0.0);
+                match.setWhiteScore(
+                        1.0
+                );
+
+                match.setBlackScore(
+                        0.0
+                );
 
                 match.setTermination(
                         TournamentMatchTermination.BLACK_FORFEIT
@@ -835,7 +936,10 @@ public class TournamentService {
                         TournamentMatchStatus.COMPLETED
                 );
 
-                addScore(white, 1.0);
+                addScore(
+                        white,
+                        1.0
+                );
             }
         }
     }
@@ -854,6 +958,10 @@ public class TournamentService {
                 currentScore + points
         );
     }
+
+    // =========================================================
+    // ROUND VALIDATION
+    // =========================================================
 
     private void validateCurrentRoundCompleted(
             Tournament tournament
@@ -874,6 +982,7 @@ public class TournamentService {
                         );
 
         if (unfinished) {
+
             throw new IllegalStateException(
                     "The current round must be completed first."
             );
@@ -886,6 +995,7 @@ public class TournamentService {
     ) {
 
         if (participants.size() < 2) {
+
             throw new IllegalStateException(
                     "At least two active participants are required."
             );
@@ -914,6 +1024,10 @@ public class TournamentService {
             }
         }
     }
+
+    // =========================================================
+    // STANDARD MATCH RESULT
+    // =========================================================
 
     private void recordStandardGameResult(
             TournamentMatch match,
@@ -982,6 +1096,10 @@ public class TournamentService {
         );
     }
 
+    // =========================================================
+    // KNOCKOUT RESULT
+    // =========================================================
+
     private void recordKnockoutGameResult(
             TournamentMatch match,
             Game game
@@ -1009,10 +1127,10 @@ public class TournamentService {
 
             case DRAW -> {
                 /*
-                 * The Game is finished, but the TournamentMatch
-                 * remains unresolved.
+                 * The Game is finished, but the
+                 * TournamentMatch remains unresolved.
                  *
-                 * Another Game may later be created for this match.
+                 * Another Game may later be created.
                  */
             }
         }
@@ -1047,12 +1165,17 @@ public class TournamentService {
         );
     }
 
+    // =========================================================
+    // ROUND COMPLETION
+    // =========================================================
+
     private void handleRoundCompletion(
             Tournament tournament
     ) {
 
         if (tournament.getStatus()
                 != TournamentStatus.IN_PROGRESS) {
+
             return;
         }
 
@@ -1114,7 +1237,8 @@ public class TournamentService {
                 );
 
         /*
-         * Only one player remains -> champion.
+         * Exactly one ACTIVE participant remains
+         * only after the final round has been resolved.
          */
         if (activeParticipants.size() == 1) {
 
@@ -1184,9 +1308,75 @@ public class TournamentService {
         );
     }
 
+    // =========================================================
+    // THIRD PLACE
+    // =========================================================
+
+    private boolean isCurrentThirdPlaceParticipant(
+            TournamentParticipant participant,
+            List<TournamentMatch> matches
+    ) {
+
+        return matches.stream()
+                .filter(match ->
+                        match.getType()
+                                == TournamentMatchType.THIRD_PLACE
+                )
+                .filter(match ->
+                        match.getStatus()
+                                != TournamentMatchStatus.COMPLETED
+                )
+                .anyMatch(match ->
+                        sameParticipant(
+                                match.getWhiteParticipant(),
+                                participant
+                        )
+                                ||
+                                sameParticipant(
+                                        match.getBlackParticipant(),
+                                        participant
+                                )
+                );
+    }
+
+    private boolean sameParticipant(
+            TournamentParticipant first,
+            TournamentParticipant second
+    ) {
+
+        if (first == second) {
+            return true;
+        }
+
+        if (first == null
+                || second == null) {
+
+            return false;
+        }
+
+        if (first.getId() != null
+                && second.getId() != null) {
+
+            return first.getId()
+                    .equals(
+                            second.getId()
+                    );
+        }
+
+        return false;
+    }
+
+    // =========================================================
+    // FINISH TOURNAMENT
+    // =========================================================
+
     private void finishTournament(
             Tournament tournament
     ) {
+
+        assignFinalRanks(
+                tournament
+        );
 
         tournament.setStatus(
                 TournamentStatus.FINISHED
@@ -1194,6 +1384,261 @@ public class TournamentService {
 
         tournament.setFinishedAt(
                 LocalDateTime.now()
+        );
+    }
+
+    // =========================================================
+    // FINAL RANKING
+    // =========================================================
+
+    private void assignFinalRanks(
+            Tournament tournament
+    ) {
+
+        List<TournamentParticipant> allParticipants =
+                participantRepository
+                        .findByTournament(
+                                tournament
+                        );
+
+        /*
+         * Reset first.
+         *
+         * WITHDRAWN participants and participants
+         * eliminated outside the Top 4 in knockout
+         * therefore remain with null finalRank.
+         */
+        allParticipants.forEach(participant ->
+                participant.setFinalRank(
+                        null
+                )
+        );
+
+        List<TournamentParticipant> participants =
+                allParticipants.stream()
+                        .filter(participant ->
+                                participant.getStatus()
+                                        != TournamentParticipantStatus.WITHDRAWN
+                        )
+                        .toList();
+
+        if (tournament.getFormat()
+                == TournamentFormat.SINGLE_ELIMINATION) {
+
+            assignSingleEliminationFinalRanks(
+                    tournament,
+                    participants
+            );
+
+            return;
+        }
+
+        assignLeaderboardFinalRanks(
+                tournament,
+                participants
+        );
+    }
+
+    // =========================================================
+    // SWISS / ROUND ROBIN FINAL RANKING
+    // =========================================================
+
+    private void assignLeaderboardFinalRanks(
+            Tournament tournament,
+            List<TournamentParticipant> participants
+    ) {
+
+        List<TournamentMatch> matches =
+                matchRepository
+                        .findByTournament(
+                                tournament
+                        );
+
+        List<TournamentParticipant> standings =
+                leaderboardService
+                        .calculateStandings(
+                                tournament,
+                                participants,
+                                matches
+                        );
+
+        for (int i = 0;
+             i < standings.size();
+             i++) {
+
+            standings.get(i)
+                    .setFinalRank(
+                            i + 1
+                    );
+        }
+    }
+
+    // =========================================================
+    // SINGLE ELIMINATION FINAL RANKING
+    // =========================================================
+
+    private void assignSingleEliminationFinalRanks(
+            Tournament tournament,
+            List<TournamentParticipant> participants
+    ) {
+
+        List<TournamentMatch> finalRoundMatches =
+                matchRepository
+                        .findByTournamentAndRoundNumberOrderByBoardNumber(
+                                tournament,
+                                tournament.getCurrentRound()
+                        );
+
+        TournamentMatch finalMatch =
+                finalRoundMatches.stream()
+                        .filter(
+                                this::isMainMatch
+                        )
+                        .findFirst()
+                        .orElseThrow(() ->
+                                new IllegalStateException(
+                                        "Single-elimination tournament has no final match."
+                                )
+                        );
+
+        assignRanksFromMatch(
+                finalMatch,
+                1,
+                2
+        );
+
+        TournamentMatch thirdPlaceMatch =
+                finalRoundMatches.stream()
+                        .filter(match ->
+                                match.getType()
+                                        == TournamentMatchType.THIRD_PLACE
+                        )
+                        .findFirst()
+                        .orElse(
+                                null
+                        );
+
+        if (thirdPlaceMatch != null) {
+
+            assignRanksFromMatch(
+                    thirdPlaceMatch,
+                    3,
+                    4
+            );
+
+            return;
+        }
+
+        /*
+         * Special case:
+         *
+         * With three players one semifinal is a BYE.
+         * Therefore there is only one semifinal loser
+         * and no third-place match.
+         */
+        List<TournamentParticipant> unrankedParticipants =
+                participants.stream()
+                        .filter(participant ->
+                                participant.getFinalRank()
+                                        == null
+                        )
+                        .toList();
+
+        if (unrankedParticipants.size() == 1) {
+
+            unrankedParticipants
+                    .get(0)
+                    .setFinalRank(
+                            3
+                    );
+        }
+    }
+
+    private boolean isMainMatch(
+            TournamentMatch match
+    ) {
+
+        /*
+         * null also counts as MAIN for compatibility
+         * with older tests/entities created before
+         * TournamentMatchType was introduced.
+         */
+        return match.getType() == null
+                ||
+                match.getType()
+                        == TournamentMatchType.MAIN;
+    }
+
+    private void assignRanksFromMatch(
+            TournamentMatch match,
+            int winnerRank,
+            int loserRank
+    ) {
+
+        if (match.getStatus()
+                != TournamentMatchStatus.COMPLETED) {
+
+            throw new IllegalStateException(
+                    "Final ranking requires a completed match."
+            );
+        }
+
+        TournamentParticipant white =
+                match.getWhiteParticipant();
+
+        TournamentParticipant black =
+                match.getBlackParticipant();
+
+        if (white == null
+                || black == null) {
+
+            throw new IllegalStateException(
+                    "A placement match must have two participants."
+            );
+        }
+
+        Double whiteScore =
+                match.getWhiteScore();
+
+        Double blackScore =
+                match.getBlackScore();
+
+        if (whiteScore == null
+                || blackScore == null) {
+
+            throw new IllegalStateException(
+                    "A completed placement match must have scores."
+            );
+        }
+
+        if (whiteScore > blackScore) {
+
+            white.setFinalRank(
+                    winnerRank
+            );
+
+            black.setFinalRank(
+                    loserRank
+            );
+
+            return;
+        }
+
+        if (blackScore > whiteScore) {
+
+            black.setFinalRank(
+                    winnerRank
+            );
+
+            white.setFinalRank(
+                    loserRank
+            );
+
+            return;
+        }
+
+        throw new IllegalStateException(
+                "A knockout placement match cannot end in a draw."
         );
     }
 }

@@ -4,6 +4,7 @@ import com.example.chessforge.model.entity.Tournament;
 import com.example.chessforge.model.entity.TournamentMatch;
 import com.example.chessforge.model.entity.TournamentParticipant;
 import com.example.chessforge.model.enums.TournamentMatchStatus;
+import com.example.chessforge.model.enums.TournamentMatchType;
 import com.example.chessforge.model.enums.TournamentParticipantStatus;
 import org.springframework.stereotype.Component;
 
@@ -206,13 +207,90 @@ class TournamentPairingService {
                         )
                         .toList();
 
+        /*
+         * Two matches in the previous round mean that
+         * they were the semifinals.
+         *
+         * Winners -> final
+         * Losers  -> third-place match
+         */
+        if (sortedMatches.size() == 2) {
+
+            TournamentMatch firstSemi =
+                    sortedMatches.get(0);
+
+            TournamentMatch secondSemi =
+                    sortedMatches.get(1);
+
+            TournamentParticipant firstWinner =
+                    getSingleEliminationWinner(
+                            firstSemi
+                    );
+
+            TournamentParticipant secondWinner =
+                    getSingleEliminationWinner(
+                            secondSemi
+                    );
+
+            TournamentParticipant firstLoser =
+                    getSingleEliminationLoser(
+                            firstSemi
+                    );
+
+            TournamentParticipant secondLoser =
+                    getSingleEliminationLoser(
+                            secondSemi
+                    );
+
+            List<TournamentMatch> matches =
+                    new ArrayList<>();
+
+            /*
+             * Final.
+             */
+            matches.add(
+                    createMatch(
+                            tournament,
+                            firstWinner,
+                            secondWinner,
+                            roundNumber,
+                            1,
+                            TournamentMatchType.MAIN
+                    )
+            );
+
+            /*
+             * If both semifinals were actual games,
+             * their losers play for third place.
+             *
+             * With three participants one semifinal
+             * may be a BYE, so there is no second loser.
+             */
+            if (firstLoser != null
+                    && secondLoser != null) {
+
+                matches.add(
+                        createMatch(
+                                tournament,
+                                firstLoser,
+                                secondLoser,
+                                roundNumber,
+                                2,
+                                TournamentMatchType.THIRD_PLACE
+                        )
+                );
+            }
+
+            return matches;
+        }
+
         List<TournamentMatch> matches =
                 new ArrayList<>();
 
         int boardNumber = 1;
 
         /*
-         * Fixed bracket:
+         * Earlier knockout rounds:
          *
          * winner board 1 vs winner board 2
          * winner board 3 vs winner board 4
@@ -413,6 +491,9 @@ class TournamentPairingService {
                 )
                 .whiteScore(null)
                 .blackScore(null)
+                .type(
+                        TournamentMatchType.MAIN
+                )
                 .build();
     }
 
@@ -1253,6 +1334,9 @@ class TournamentPairingService {
                 )
                 .whiteScore(null)
                 .blackScore(null)
+                .type(
+                        TournamentMatchType.MAIN
+                )
                 .build();
     }
 
@@ -1391,52 +1475,85 @@ class TournamentPairingService {
                 .termination(null)
                 .whiteScore(null)
                 .blackScore(null)
+                .type(
+                        TournamentMatchType.MAIN
+                )
                 .build();
     }
 
     private TournamentMatch createMatch(
             Tournament tournament,
-            TournamentParticipant first,
-            TournamentParticipant second,
-            int roundNumber,
-            int boardNumber
+            TournamentParticipant white,
+            TournamentParticipant black,
+            int round,
+            int board
     ) {
+        return createMatch(
+                tournament,
+                white,
+                black,
+                round,
+                board,
+                TournamentMatchType.MAIN
+        );
+    }
 
-        boolean firstIsWhite =
-                boardNumber % 2 != 0;
+    private TournamentMatch createMatch(
+            Tournament tournament,
+            TournamentParticipant white,
+            TournamentParticipant black,
+            int round,
+            int board,
+            TournamentMatchType type
+    ) {
+        TournamentMatch match = new TournamentMatch();
 
-        TournamentParticipant whiteParticipant =
-                firstIsWhite
-                        ? first
-                        : second;
+        match.setTournament(tournament);
+        match.setWhiteParticipant(white);
+        match.setBlackParticipant(black);
+        match.setRoundNumber(round);
+        match.setBoardNumber(board);
+        match.setType(type);
+        match.setStatus(TournamentMatchStatus.PENDING);
 
-        TournamentParticipant blackParticipant =
-                firstIsWhite
-                        ? second
-                        : first;
+        return match;
+    }
 
-        return TournamentMatch.builder()
-                .tournament(
-                        tournament
-                )
-                .whiteParticipant(
-                        whiteParticipant
-                )
-                .blackParticipant(
-                        blackParticipant
-                )
-                .roundNumber(
-                        roundNumber
-                )
-                .boardNumber(
-                        boardNumber
-                )
-                .status(
-                        TournamentMatchStatus.PENDING
-                )
-                .whiteScore(null)
-                .blackScore(null)
-                .build();
+    private TournamentParticipant getSingleEliminationLoser(
+            TournamentMatch match
+    ) {
+        if (match.getStatus()
+                != TournamentMatchStatus.COMPLETED) {
+
+            throw new IllegalStateException(
+                    "Cannot determine loser of an incomplete match."
+            );
+        }
+
+        if (match.getBlackParticipant() == null) {
+            return null;
+        }
+
+        Double whiteScore = match.getWhiteScore();
+        Double blackScore = match.getBlackScore();
+
+        if (whiteScore == null || blackScore == null) {
+            throw new IllegalStateException(
+                    "Completed knockout match must have scores."
+            );
+        }
+
+        if (whiteScore > blackScore) {
+            return match.getBlackParticipant();
+        }
+
+        if (blackScore > whiteScore) {
+            return match.getWhiteParticipant();
+        }
+
+        throw new IllegalStateException(
+                "A knockout match cannot advance after a draw."
+        );
     }
 
     // =========================================================

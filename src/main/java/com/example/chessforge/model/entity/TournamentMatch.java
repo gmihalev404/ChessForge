@@ -2,6 +2,7 @@ package com.example.chessforge.model.entity;
 
 import com.example.chessforge.model.enums.TournamentMatchStatus;
 import com.example.chessforge.model.enums.TournamentMatchTermination;
+import com.example.chessforge.model.enums.TournamentMatchType;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -52,10 +53,18 @@ public class TournamentMatch extends BaseEntity {
 
     private Double blackScore;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private TournamentMatchType type;
+
     @PrePersist
     private void onCreate() {
         if (status == null) {
             status = TournamentMatchStatus.PENDING;
+        }
+
+        if (type == null) {
+            type = TournamentMatchType.MAIN;
         }
     }
 }

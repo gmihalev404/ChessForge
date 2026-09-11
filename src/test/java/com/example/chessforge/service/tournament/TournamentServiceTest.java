@@ -1375,6 +1375,259 @@ class TournamentServiceTest {
         );
     }
 
+    @Test
+    void eliminatedParticipantShouldBeAbleToForfeitThirdPlaceMatch() {
+
+        Tournament tournament =
+                createTournament(
+                        TournamentStatus.IN_PROGRESS,
+                        TournamentFormat.SINGLE_ELIMINATION
+                );
+
+        tournament.setCurrentRound(3);
+
+        TournamentParticipant forfeiting =
+                createParticipant(
+                        tournament,
+                        player
+                );
+
+        forfeiting.setStatus(
+                TournamentParticipantStatus.ELIMINATED
+        );
+
+        User opponentUser =
+                createUser(
+                        3L,
+                        "bronzeOpponent"
+                );
+
+        TournamentParticipant opponent =
+                createParticipant(
+                        tournament,
+                        opponentUser
+                );
+
+        opponent.setStatus(
+                TournamentParticipantStatus.ELIMINATED
+        );
+
+        User finalistOneUser =
+                createUser(
+                        4L,
+                        "finalistOne"
+                );
+
+        User finalistTwoUser =
+                createUser(
+                        5L,
+                        "finalistTwo"
+                );
+
+        TournamentParticipant finalistOne =
+                createParticipant(
+                        tournament,
+                        finalistOneUser
+                );
+
+        TournamentParticipant finalistTwo =
+                createParticipant(
+                        tournament,
+                        finalistTwoUser
+                );
+
+        TournamentMatch finalMatch =
+                TournamentMatch.builder()
+                        .tournament(tournament)
+                        .whiteParticipant(finalistOne)
+                        .blackParticipant(finalistTwo)
+                        .roundNumber(3)
+                        .boardNumber(1)
+                        .type(
+                                TournamentMatchType.MAIN
+                        )
+                        .status(
+                                TournamentMatchStatus.PENDING
+                        )
+                        .build();
+
+        TournamentMatch thirdPlaceMatch =
+                TournamentMatch.builder()
+                        .tournament(tournament)
+                        .whiteParticipant(forfeiting)
+                        .blackParticipant(opponent)
+                        .roundNumber(3)
+                        .boardNumber(2)
+                        .type(
+                                TournamentMatchType.THIRD_PLACE
+                        )
+                        .status(
+                                TournamentMatchStatus.PENDING
+                        )
+                        .build();
+
+        when(
+                participantRepository
+                        .findByTournamentAndUser(
+                                tournament,
+                                player
+                        )
+        ).thenReturn(
+                Optional.of(forfeiting)
+        );
+
+        when(
+                matchRepository
+                        .findByTournamentAndRoundNumberOrderByBoardNumber(
+                                tournament,
+                                3
+                        )
+        ).thenReturn(
+                List.of(
+                        finalMatch,
+                        thirdPlaceMatch
+                )
+        );
+
+        tournamentService.forfeit(
+                tournament,
+                player
+        );
+
+        assertEquals(
+                TournamentParticipantStatus.FORFEITED,
+                forfeiting.getStatus()
+        );
+
+        assertEquals(
+                TournamentMatchStatus.COMPLETED,
+                thirdPlaceMatch.getStatus()
+        );
+
+        assertEquals(
+                TournamentMatchTermination.WHITE_FORFEIT,
+                thirdPlaceMatch.getTermination()
+        );
+
+        assertEquals(
+                0.0,
+                thirdPlaceMatch.getWhiteScore()
+        );
+
+        assertEquals(
+                1.0,
+                thirdPlaceMatch.getBlackScore()
+        );
+
+        assertEquals(
+                1.0,
+                opponent.getScore()
+        );
+
+        /*
+         * Final has not been played yet.
+         */
+        assertEquals(
+                TournamentStatus.IN_PROGRESS,
+                tournament.getStatus()
+        );
+    }
+
+    @Test
+    void eliminatedParticipantShouldNotForfeitOutsideThirdPlaceMatch() {
+
+        Tournament tournament =
+                createTournament(
+                        TournamentStatus.IN_PROGRESS,
+                        TournamentFormat.SINGLE_ELIMINATION
+                );
+
+        tournament.setCurrentRound(3);
+
+        TournamentParticipant eliminated =
+                createParticipant(
+                        tournament,
+                        player
+                );
+
+        eliminated.setStatus(
+                TournamentParticipantStatus.ELIMINATED
+        );
+
+        User firstUser =
+                createUser(
+                        3L,
+                        "first"
+                );
+
+        User secondUser =
+                createUser(
+                        4L,
+                        "second"
+                );
+
+        TournamentParticipant first =
+                createParticipant(
+                        tournament,
+                        firstUser
+                );
+
+        TournamentParticipant second =
+                createParticipant(
+                        tournament,
+                        secondUser
+                );
+
+        TournamentMatch thirdPlace =
+                TournamentMatch.builder()
+                        .tournament(tournament)
+                        .whiteParticipant(first)
+                        .blackParticipant(second)
+                        .roundNumber(3)
+                        .boardNumber(2)
+                        .type(
+                                TournamentMatchType.THIRD_PLACE
+                        )
+                        .status(
+                                TournamentMatchStatus.PENDING
+                        )
+                        .build();
+
+        when(
+                participantRepository
+                        .findByTournamentAndUser(
+                                tournament,
+                                player
+                        )
+        ).thenReturn(
+                Optional.of(eliminated)
+        );
+
+        when(
+                matchRepository
+                        .findByTournamentAndRoundNumberOrderByBoardNumber(
+                                tournament,
+                                3
+                        )
+        ).thenReturn(
+                List.of(thirdPlace)
+        );
+
+        assertThrows(
+                IllegalStateException.class,
+                () ->
+                        tournamentService.forfeit(
+                                tournament,
+                                player
+                        )
+        );
+
+        assertEquals(
+                TournamentParticipantStatus.ELIMINATED,
+                eliminated.getStatus()
+        );
+    }
+
     // =========================================================
     // CANCEL
     // =========================================================
@@ -1486,6 +1739,414 @@ class TournamentServiceTest {
                 tournament,
                 participants,
                 matches
+        );
+    }
+
+    @Test
+    void singleEliminationShouldWaitForThirdPlaceAndAssignTopFourRanks() {
+
+        Tournament tournament =
+                createTournament(
+                        TournamentStatus.IN_PROGRESS,
+                        TournamentFormat.SINGLE_ELIMINATION
+                );
+
+        tournament.setCurrentRound(3);
+
+        // =========================================================
+        // FINALISTS
+        // =========================================================
+
+        TournamentParticipant champion =
+                createParticipant(
+                        tournament,
+                        creator
+                );
+
+        TournamentParticipant runnerUp =
+                createParticipant(
+                        tournament,
+                        player
+                );
+
+        // =========================================================
+        // THIRD-PLACE PLAYERS
+        // =========================================================
+
+        User bronzeWinnerUser =
+                createUser(
+                        3L,
+                        "bronzeWinner"
+                );
+
+        User fourthUser =
+                createUser(
+                        4L,
+                        "fourth"
+                );
+
+        TournamentParticipant bronzeWinner =
+                createParticipant(
+                        tournament,
+                        bronzeWinnerUser
+                );
+
+        TournamentParticipant fourth =
+                createParticipant(
+                        tournament,
+                        fourthUser
+                );
+
+        /*
+         * They already lost their semifinals.
+         */
+        bronzeWinner.setStatus(
+                TournamentParticipantStatus.ELIMINATED
+        );
+
+        fourth.setStatus(
+                TournamentParticipantStatus.ELIMINATED
+        );
+
+        // =========================================================
+        // EARLIER ELIMINATED / WITHDRAWN
+        // =========================================================
+
+        User earlierUser =
+                createUser(
+                        5L,
+                        "earlier"
+                );
+
+        TournamentParticipant earlierEliminated =
+                createParticipant(
+                        tournament,
+                        earlierUser
+                );
+
+        earlierEliminated.setStatus(
+                TournamentParticipantStatus.ELIMINATED
+        );
+
+        User withdrawnUser =
+                createUser(
+                        6L,
+                        "withdrawn"
+                );
+
+        TournamentParticipant withdrawn =
+                createParticipant(
+                        tournament,
+                        withdrawnUser
+                );
+
+        withdrawn.setStatus(
+                TournamentParticipantStatus.WITHDRAWN
+        );
+
+        /*
+         * Verify that finishTournament resets stale ranking.
+         */
+        withdrawn.setFinalRank(99);
+
+        TournamentMatch finalMatch =
+                TournamentMatch.builder()
+                        .tournament(tournament)
+                        .whiteParticipant(champion)
+                        .blackParticipant(runnerUp)
+                        .roundNumber(3)
+                        .boardNumber(1)
+                        .type(
+                                TournamentMatchType.MAIN
+                        )
+                        .status(
+                                TournamentMatchStatus.IN_PROGRESS
+                        )
+                        .build();
+
+        TournamentMatch thirdPlaceMatch =
+                TournamentMatch.builder()
+                        .tournament(tournament)
+                        .whiteParticipant(bronzeWinner)
+                        .blackParticipant(fourth)
+                        .roundNumber(3)
+                        .boardNumber(2)
+                        .type(
+                                TournamentMatchType.THIRD_PLACE
+                        )
+                        .status(
+                                TournamentMatchStatus.IN_PROGRESS
+                        )
+                        .build();
+
+        List<TournamentParticipant> participants =
+                List.of(
+                        champion,
+                        runnerUp,
+                        bronzeWinner,
+                        fourth,
+                        earlierEliminated,
+                        withdrawn
+                );
+
+        when(
+                matchRepository
+                        .findByTournamentAndRoundNumberOrderByBoardNumber(
+                                tournament,
+                                3
+                        )
+        ).thenReturn(
+                List.of(
+                        finalMatch,
+                        thirdPlaceMatch
+                )
+        );
+
+        when(
+                participantRepository
+                        .findByTournament(tournament)
+        ).thenReturn(
+                participants
+        );
+
+        // =========================================================
+        // PLAY FINAL
+        // =========================================================
+
+        Game finalGame =
+                Game.builder()
+                        .whitePlayer(
+                                champion.getUser()
+                        )
+                        .blackPlayer(
+                                runnerUp.getUser()
+                        )
+                        .tournamentMatch(
+                                finalMatch
+                        )
+                        .status(
+                                GameStatus.FINISHED
+                        )
+                        .result(
+                                GameResult.WHITE_WIN
+                        )
+                        .build();
+
+        tournamentService.recordGameResult(
+                finalGame
+        );
+
+        /*
+         * Champion is already known,
+         * but bronze match is not finished.
+         */
+        assertEquals(
+                TournamentStatus.IN_PROGRESS,
+                tournament.getStatus()
+        );
+
+        assertEquals(
+                TournamentMatchStatus.COMPLETED,
+                finalMatch.getStatus()
+        );
+
+        assertEquals(
+                TournamentMatchStatus.IN_PROGRESS,
+                thirdPlaceMatch.getStatus()
+        );
+
+        // =========================================================
+        // PLAY THIRD-PLACE MATCH
+        // =========================================================
+
+        Game thirdPlaceGame =
+                Game.builder()
+                        .whitePlayer(
+                                bronzeWinner.getUser()
+                        )
+                        .blackPlayer(
+                                fourth.getUser()
+                        )
+                        .tournamentMatch(
+                                thirdPlaceMatch
+                        )
+                        .status(
+                                GameStatus.FINISHED
+                        )
+                        .result(
+                                GameResult.WHITE_WIN
+                        )
+                        .build();
+
+        tournamentService.recordGameResult(
+                thirdPlaceGame
+        );
+
+        // =========================================================
+        // TOURNAMENT FINISHED
+        // =========================================================
+
+        assertEquals(
+                TournamentStatus.FINISHED,
+                tournament.getStatus()
+        );
+
+        assertNotNull(
+                tournament.getFinishedAt()
+        );
+
+        assertEquals(
+                1,
+                champion.getFinalRank()
+        );
+
+        assertEquals(
+                2,
+                runnerUp.getFinalRank()
+        );
+
+        assertEquals(
+                3,
+                bronzeWinner.getFinalRank()
+        );
+
+        assertEquals(
+                4,
+                fourth.getFinalRank()
+        );
+
+        /*
+         * No artificial 5th/6th positions
+         * in single elimination.
+         */
+        assertNull(
+                earlierEliminated.getFinalRank()
+        );
+
+        assertNull(
+                withdrawn.getFinalRank()
+        );
+    }
+
+    @Test
+    void threePlayerSingleEliminationShouldAssignFirstSecondAndThird() {
+
+        Tournament tournament =
+                createTournament(
+                        TournamentStatus.IN_PROGRESS,
+                        TournamentFormat.SINGLE_ELIMINATION
+                );
+
+        tournament.setCurrentRound(2);
+
+        TournamentParticipant winner =
+                createParticipant(
+                        tournament,
+                        creator
+                );
+
+        TournamentParticipant runnerUp =
+                createParticipant(
+                        tournament,
+                        player
+                );
+
+        User thirdUser =
+                createUser(
+                        3L,
+                        "third"
+                );
+
+        TournamentParticipant third =
+                createParticipant(
+                        tournament,
+                        thirdUser
+                );
+
+        /*
+         * Lost the only real semifinal.
+         */
+        third.setStatus(
+                TournamentParticipantStatus.ELIMINATED
+        );
+
+        TournamentMatch finalMatch =
+                TournamentMatch.builder()
+                        .tournament(tournament)
+                        .whiteParticipant(winner)
+                        .blackParticipant(runnerUp)
+                        .roundNumber(2)
+                        .boardNumber(1)
+                        .type(
+                                TournamentMatchType.MAIN
+                        )
+                        .status(
+                                TournamentMatchStatus.IN_PROGRESS
+                        )
+                        .build();
+
+        when(
+                matchRepository
+                        .findByTournamentAndRoundNumberOrderByBoardNumber(
+                                tournament,
+                                2
+                        )
+        ).thenReturn(
+                List.of(finalMatch)
+        );
+
+        when(
+                participantRepository
+                        .findByTournament(tournament)
+        ).thenReturn(
+                List.of(
+                        winner,
+                        runnerUp,
+                        third
+                )
+        );
+
+        Game game =
+                Game.builder()
+                        .whitePlayer(
+                                winner.getUser()
+                        )
+                        .blackPlayer(
+                                runnerUp.getUser()
+                        )
+                        .tournamentMatch(
+                                finalMatch
+                        )
+                        .status(
+                                GameStatus.FINISHED
+                        )
+                        .result(
+                                GameResult.WHITE_WIN
+                        )
+                        .build();
+
+        tournamentService.recordGameResult(
+                game
+        );
+
+        assertEquals(
+                TournamentStatus.FINISHED,
+                tournament.getStatus()
+        );
+
+        assertEquals(
+                1,
+                winner.getFinalRank()
+        );
+
+        assertEquals(
+                2,
+                runnerUp.getFinalRank()
+        );
+
+        assertEquals(
+                3,
+                third.getFinalRank()
         );
     }
 
@@ -2042,6 +2703,40 @@ class TournamentServiceTest {
                 List.of(match)
         );
 
+        List<TournamentParticipant> participants =
+                List.of(
+                        white,
+                        black
+                );
+
+        when(
+                participantRepository
+                        .findByTournament(tournament)
+        ).thenReturn(
+                participants
+        );
+
+        when(
+                matchRepository
+                        .findByTournament(tournament)
+        ).thenReturn(
+                List.of(match)
+        );
+
+        when(
+                leaderboardService
+                        .calculateStandings(
+                                tournament,
+                                participants,
+                                List.of(match)
+                        )
+        ).thenReturn(
+                List.of(
+                        white,
+                        black
+                )
+        );
+
         tournamentService.recordGameResult(
                 game
         );
@@ -2063,6 +2758,16 @@ class TournamentServiceTest {
         assertEquals(
                 3,
                 tournament.getCurrentRound()
+        );
+
+        assertEquals(
+                1,
+                white.getFinalRank()
+        );
+
+        assertEquals(
+                2,
+                black.getFinalRank()
         );
 
         verify(
@@ -2497,6 +3202,16 @@ class TournamentServiceTest {
 
         assertNotNull(
                 tournament.getFinishedAt()
+        );
+
+        assertEquals(
+                1,
+                winner.getFinalRank()
+        );
+
+        assertEquals(
+                2,
+                loser.getFinalRank()
         );
 
         verify(
