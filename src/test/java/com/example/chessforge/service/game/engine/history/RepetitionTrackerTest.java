@@ -49,6 +49,7 @@ class RepetitionTrackerTest {
                 new PositionKeyFactory(
                         legalMoveGenerator
                 );
+
         FenConverter fenConverter = new FenConverter();
 
         gameEngine =
@@ -58,7 +59,8 @@ class RepetitionTrackerTest {
                         attackDetector,
                         positionEvaluator,
                         drawEvaluator,
-                        fenConverter
+                        fenConverter,
+                        positionKeyFactory
                 );
     }
 

@@ -16,10 +16,8 @@ import com.example.chessforge.model.enums.tournament.TournamentMatchStatus;
 import com.example.chessforge.repository.game.GameMoveRepository;
 import com.example.chessforge.repository.game.GameRepository;
 import com.example.chessforge.service.game.engine.GameEngine;
-import com.example.chessforge.service.game.engine.model.GameState;
-import com.example.chessforge.service.game.engine.model.Move;
-import com.example.chessforge.service.game.engine.model.PieceColor;
-import com.example.chessforge.service.game.engine.model.Square;
+import com.example.chessforge.service.game.engine.history.RepetitionTracker;
+import com.example.chessforge.service.game.engine.model.*;
 import com.example.chessforge.service.tournament.TournamentService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -264,6 +262,11 @@ public class GameService {
                 state
         );
 
+        RepetitionTracker repetitionTracker =
+                restoreRepetitionTracker(
+                        game
+                );
+
         int plyNumber =
                 calculatePlyNumber(
                         state
@@ -283,6 +286,10 @@ public class GameService {
                 newFen
         );
 
+        repetitionTracker.recordPosition(
+                state
+        );
+
         saveGameMove(
                 game,
                 move,
@@ -292,7 +299,8 @@ public class GameService {
 
         finishIfGameEnded(
                 game,
-                state
+                state,
+                repetitionTracker
         );
 
         return gameRepository.save(
@@ -418,7 +426,8 @@ public class GameService {
 
     private void finishIfGameEnded(
             Game game,
-            GameState state
+            GameState state,
+            RepetitionTracker repetitionTracker
     ) {
 
         if (gameEngine.isCheckmate(state)) {
@@ -455,6 +464,24 @@ public class GameService {
                     game,
                     GameResult.DRAW,
                     GameTermination.INSUFFICIENT_MATERIAL
+            );
+
+            return;
+        }
+
+        if (gameEngine
+                .getAutomaticDrawReasons(
+                        state,
+                        repetitionTracker
+                )
+                .contains(
+                        DrawReason.FIVEFOLD_REPETITION
+                )) {
+
+            finishGame(
+                    game,
+                    GameResult.DRAW,
+                    GameTermination.FIVEFOLD_REPETITION
             );
         }
     }
@@ -521,5 +548,35 @@ public class GameService {
 
         return String.valueOf(file)
                 + rank;
+    }
+
+    private RepetitionTracker restoreRepetitionTracker(
+            Game game
+    ) {
+
+        RepetitionTracker tracker =
+                gameEngine.createRepetitionTracker(
+                        GameState.initial()
+                );
+
+        List<GameMove> moves =
+                gameMoveRepository
+                        .findByGameIdOrderByPlyNumberAsc(
+                                game.getId()
+                        );
+
+        for (GameMove gameMove : moves) {
+
+            GameState historicalState =
+                    gameEngine.fromFen(
+                            gameMove.getFenAfter()
+                    );
+
+            tracker.recordPosition(
+                    historicalState
+            );
+        }
+
+        return tracker;
     }
 }

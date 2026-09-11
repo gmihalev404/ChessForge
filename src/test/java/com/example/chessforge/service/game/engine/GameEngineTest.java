@@ -60,6 +60,11 @@ class GameEngineTest {
         FenConverter fenConverter =
                 new FenConverter();
 
+        PositionKeyFactory positionKeyFactory =
+                new PositionKeyFactory(
+                        legalMoveGenerator
+                );
+
         gameEngine =
                 new GameEngine(
                         legalMoveGenerator,
@@ -67,7 +72,8 @@ class GameEngineTest {
                         attackDetector,
                         positionEvaluator,
                         drawEvaluator,
-                        fenConverter
+                        fenConverter,
+                        positionKeyFactory
                 );
     }
 

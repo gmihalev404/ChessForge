@@ -1,5 +1,6 @@
 package com.example.chessforge.service.game.engine;
 
+import com.example.chessforge.service.game.engine.history.PositionKeyFactory;
 import com.example.chessforge.service.game.engine.history.RepetitionTracker;
 import com.example.chessforge.service.game.engine.model.*;
 import com.example.chessforge.service.game.engine.move.LegalMoveGenerator;
@@ -24,6 +25,7 @@ public class GameEngine {
 
     private final DrawEvaluator drawEvaluator;
     private final FenConverter fenConverter;
+    private final PositionKeyFactory positionKeyFactory;
 
 
     public GameEngine(
@@ -32,7 +34,7 @@ public class GameEngine {
             AttackDetector attackDetector,
             PositionEvaluator positionEvaluator,
             DrawEvaluator drawEvaluator,
-            FenConverter fenConverter
+            FenConverter fenConverter, PositionKeyFactory positionKeyFactory
     ) {
 
         this.legalMoveGenerator =
@@ -70,6 +72,12 @@ public class GameEngine {
                         fenConverter,
                         "FEN converter cannot be null."
                 );
+        this.positionKeyFactory =
+                Objects.requireNonNull(
+                        positionKeyFactory,
+                        "Position key factory cannot be null."
+                );
+        ;
     }
 
     // =========================================================
@@ -285,5 +293,16 @@ public class GameEngine {
         return fenConverter.fromFen(
                 fen
         );
+    }
+
+    public RepetitionTracker createRepetitionTracker(
+            GameState initialState
+    ) {
+
+        return new RepetitionTracker(
+                positionKeyFactory,
+                initialState
+        );
+
     }
 }

@@ -22,6 +22,7 @@ import com.example.chessforge.model.enums.user.UserStatus;
 import com.example.chessforge.repository.game.GameMoveRepository;
 import com.example.chessforge.repository.game.GameRepository;
 import com.example.chessforge.service.game.engine.GameEngine;
+import com.example.chessforge.service.game.engine.history.RepetitionTracker;
 import com.example.chessforge.service.game.engine.model.*;
 import com.example.chessforge.service.tournament.TournamentService;
 import org.junit.jupiter.api.BeforeEach;
@@ -58,6 +59,9 @@ class GameServiceTest {
 
     @Mock
     private GameMoveRepository gameMoveRepository;
+
+    @Mock
+    private RepetitionTracker repetitionTracker;
 
     @InjectMocks
     private GameService gameService;
@@ -708,6 +712,9 @@ class GameServiceTest {
                         state,
                         move
                 );
+        mockEmptyRepetitionHistory(
+                gameId
+        );
 
         when(gameEngine.toFen(state))
                 .thenReturn(
@@ -1247,6 +1254,10 @@ class GameServiceTest {
         when(gameRepository.save(game))
                 .thenReturn(game);
 
+        mockEmptyRepetitionHistory(
+                gameId
+        );
+
         Game result =
                 gameService.makeMove(
                         gameId,
@@ -1263,6 +1274,11 @@ class GameServiceTest {
                 .makeMove(
                         state,
                         move
+                );
+
+        verify(repetitionTracker)
+                .recordPosition(
+                        state
                 );
 
         ArgumentCaptor<GameMove> moveCaptor =
@@ -1381,6 +1397,10 @@ class GameServiceTest {
 
         when(gameRepository.save(game))
                 .thenReturn(game);
+
+        mockEmptyRepetitionHistory(
+                gameId
+        );
 
         Game result =
                 gameService.makeMove(
@@ -1694,6 +1714,10 @@ class GameServiceTest {
                         move
                 );
 
+        mockEmptyRepetitionHistory(
+                gameId
+        );
+
         assertThrows(
                 IllegalArgumentException.class,
                 () ->
@@ -1772,6 +1796,10 @@ class GameServiceTest {
 
         when(gameRepository.save(game))
                 .thenReturn(game);
+
+        mockEmptyRepetitionHistory(
+                gameId
+        );
 
         Game result =
                 gameService.makeMove(
@@ -1857,6 +1885,10 @@ class GameServiceTest {
         when(gameRepository.save(game))
                 .thenReturn(game);
 
+        mockEmptyRepetitionHistory(
+                gameId
+        );
+
         gameService.makeMove(
                 gameId,
                 challenger,
@@ -1934,6 +1966,10 @@ class GameServiceTest {
         when(gameRepository.save(game))
                 .thenReturn(game);
 
+        mockEmptyRepetitionHistory(
+                gameId
+        );
+
         gameService.makeMove(
                 gameId,
                 challenger,
@@ -1964,9 +2000,145 @@ class GameServiceTest {
         );
     }
 
+    @Test
+    void makeMoveShouldRestoreRepetitionHistoryFromStoredMoves() {
+
+        Long gameId = 1L;
+
+        Game game =
+                createWaitingGame(
+                        challenger,
+                        opponent,
+                        TimeControl.values()[0]
+                );
+
+        setId(
+                game,
+                gameId
+        );
+
+        game.setStatus(
+                GameStatus.IN_PROGRESS
+        );
+
+        game.setCurrentFen(
+                "current-fen"
+        );
+
+        GameState currentState =
+                GameState.initial();
+
+        GameState firstHistoricalState =
+                GameState.initial();
+
+        GameState secondHistoricalState =
+                GameState.initial();
+
+        GameMove firstMove =
+                GameMove.builder()
+                        .game(game)
+                        .plyNumber(1)
+                        .fenAfter("fen-1")
+                        .build();
+
+        GameMove secondMove =
+                GameMove.builder()
+                        .game(game)
+                        .plyNumber(2)
+                        .fenAfter("fen-2")
+                        .build();
+
+        Move move =
+                Move.normal(
+                        "g1",
+                        "f3"
+                );
+
+        when(gameRepository.findById(gameId))
+                .thenReturn(
+                        Optional.of(game)
+                );
+
+        when(gameEngine.fromFen("current-fen"))
+                .thenReturn(
+                        currentState
+                );
+
+        when(gameEngine.createRepetitionTracker(
+                any(GameState.class)
+        )).thenReturn(
+                repetitionTracker
+        );
+
+        when(gameMoveRepository
+                .findByGameIdOrderByPlyNumberAsc(gameId))
+                .thenReturn(
+                        List.of(
+                                firstMove,
+                                secondMove
+                        )
+                );
+
+        when(gameEngine.fromFen("fen-1"))
+                .thenReturn(
+                        firstHistoricalState
+                );
+
+        when(gameEngine.fromFen("fen-2"))
+                .thenReturn(
+                        secondHistoricalState
+                );
+
+        when(gameEngine.toFen(currentState))
+                .thenReturn(
+                        "new-fen"
+                );
+
+        when(gameRepository.save(game))
+                .thenReturn(game);
+
+        gameService.makeMove(
+                gameId,
+                challenger,
+                move
+        );
+
+        verify(repetitionTracker)
+                .recordPosition(
+                        firstHistoricalState
+                );
+
+        verify(repetitionTracker)
+                .recordPosition(
+                        secondHistoricalState
+                );
+
+        verify(repetitionTracker)
+                .recordPosition(
+                        currentState
+                );
+    }
+
     // =========================================================
     // HELPERS
     // =========================================================
+
+    private void mockEmptyRepetitionHistory(
+            Long gameId
+    ) {
+
+        when(gameEngine.createRepetitionTracker(
+                any(GameState.class)
+        )).thenReturn(
+                repetitionTracker
+        );
+
+        when(gameMoveRepository
+                .findByGameIdOrderByPlyNumberAsc(gameId))
+                .thenReturn(
+                        List.of()
+                );
+    }
 
     private User createUser(
             Long id,
