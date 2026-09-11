@@ -14,6 +14,9 @@ import com.example.chessforge.model.enums.timeControl.TimeControlType;
 import com.example.chessforge.model.enums.tournament.TournamentMatchStatus;
 import com.example.chessforge.repository.game.GameRepository;
 import com.example.chessforge.service.game.engine.GameEngine;
+import com.example.chessforge.service.game.engine.model.GameState;
+import com.example.chessforge.service.game.engine.model.Move;
+import com.example.chessforge.service.game.engine.model.PieceColor;
 import com.example.chessforge.service.tournament.TournamentService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -148,6 +151,12 @@ public class GameService {
                 initialTime
         );
 
+        game.setCurrentFen(
+                gameEngine.toFen(
+                        GameState.initial()
+                )
+        );
+
         setRatingSnapshots(game);
     }
 
@@ -219,6 +228,58 @@ public class GameService {
                 );
     }
 
+    @Transactional
+    public Game makeMove(
+            Long gameId,
+            User player,
+            Move move
+    ) {
+
+        Game game =
+                gameRepository.findById(gameId)
+                        .orElseThrow(() ->
+                                new IllegalArgumentException(
+                                        "Game not found."
+                                )
+                        );
+
+        if (game.getStatus()
+                != GameStatus.IN_PROGRESS) {
+
+            throw new IllegalStateException(
+                    "Game is not in progress."
+            );
+        }
+
+        GameState state =
+                loadGameState(game);
+
+        validatePlayerTurn(
+                game,
+                player,
+                state
+        );
+
+        gameEngine.makeMove(
+                state,
+                move
+        );
+
+        updateGameState(
+                game,
+                state
+        );
+
+        finishIfGameEnded(
+                game,
+                state
+        );
+
+        return gameRepository.save(
+                game
+        );
+    }
+
     // =========================================================
     // HELPERS
     // =========================================================
@@ -256,21 +317,125 @@ public class GameService {
             TournamentMatch tournamentMatch
     ) {
 
-        if (whitePlayer.getId().equals(blackPlayer.getId())) {
-            throw new IllegalArgumentException(
-                    "A player cannot play against themselves."
+        Game game =
+                Game.builder()
+                        .whitePlayer(whitePlayer)
+                        .blackPlayer(blackPlayer)
+                        .timeControl(timeControl)
+                        .rated(rated)
+                        .status(GameStatus.WAITING)
+                        .tournamentMatch(tournamentMatch)
+                        .build();
+
+        initializeGameState(game);
+
+        return gameRepository.save(game);
+    }
+
+    private GameState loadGameState(
+            Game game
+    ) {
+
+        String currentFen =
+                game.getCurrentFen();
+
+        if (currentFen == null
+                || currentFen.isBlank()) {
+
+            throw new IllegalStateException(
+                    "Game does not have a current FEN."
             );
         }
 
-        Game game = Game.builder()
-                .whitePlayer(whitePlayer)
-                .blackPlayer(blackPlayer)
-                .timeControl(timeControl)
-                .rated(rated)
-                .status(GameStatus.WAITING)
-                .tournamentMatch(tournamentMatch)
-                .build();
+        return gameEngine.fromFen(
+                currentFen
+        );
+    }
 
-        return gameRepository.save(game);
+    private void updateGameState(
+            Game game,
+            GameState state
+    ) {
+
+        game.setCurrentFen(
+                gameEngine.toFen(
+                        state
+                )
+        );
+    }
+
+    private void validatePlayerTurn(
+            Game game,
+            User player,
+            GameState state
+    ) {
+
+        User expectedPlayer =
+                state.getSideToMove()
+                        == PieceColor.WHITE
+                        ? game.getWhitePlayer()
+                        : game.getBlackPlayer();
+
+        if (!expectedPlayer.getId()
+                .equals(player.getId())) {
+
+            throw new IllegalStateException(
+                    "It is not this player's turn."
+            );
+        }
+    }
+
+    private void initializeGameState(
+            Game game
+    ) {
+
+        game.setCurrentFen(
+                gameEngine.toFen(
+                        GameState.initial()
+                )
+        );
+    }
+
+    private void finishIfGameEnded(
+            Game game,
+            GameState state
+    ) {
+
+        if (gameEngine.isCheckmate(state)) {
+
+            GameResult result =
+                    state.getSideToMove()
+                            == PieceColor.WHITE
+                            ? GameResult.BLACK_WIN
+                            : GameResult.WHITE_WIN;
+
+            finishGame(
+                    game,
+                    result,
+                    GameTermination.CHECKMATE
+            );
+
+            return;
+        }
+
+        if (gameEngine.isStalemate(state)) {
+
+            finishGame(
+                    game,
+                    GameResult.DRAW,
+                    GameTermination.STALEMATE
+            );
+
+            return;
+        }
+
+        if (gameEngine.isInsufficientMaterial(state)) {
+
+            finishGame(
+                    game,
+                    GameResult.DRAW,
+                    GameTermination.INSUFFICIENT_MATERIAL
+            );
+        }
     }
 }

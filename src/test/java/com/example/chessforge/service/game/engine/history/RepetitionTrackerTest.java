@@ -5,6 +5,7 @@ import com.example.chessforge.service.game.engine.model.*;
 import com.example.chessforge.service.game.engine.move.LegalMoveGenerator;
 import com.example.chessforge.service.game.engine.move.MoveApplier;
 import com.example.chessforge.service.game.engine.move.MoveGenerator;
+import com.example.chessforge.service.game.engine.notation.FenConverter;
 import com.example.chessforge.service.game.engine.rule.AttackDetector;
 import com.example.chessforge.service.game.engine.rule.DrawEvaluator;
 import com.example.chessforge.service.game.engine.rule.PositionEvaluator;
@@ -48,6 +49,7 @@ class RepetitionTrackerTest {
                 new PositionKeyFactory(
                         legalMoveGenerator
                 );
+        FenConverter fenConverter = new FenConverter();
 
         gameEngine =
                 new GameEngine(
@@ -55,7 +57,8 @@ class RepetitionTrackerTest {
                         moveApplier,
                         attackDetector,
                         positionEvaluator,
-                        drawEvaluator
+                        drawEvaluator,
+                        fenConverter
                 );
     }
 

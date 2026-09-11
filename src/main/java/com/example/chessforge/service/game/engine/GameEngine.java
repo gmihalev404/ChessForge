@@ -4,6 +4,7 @@ import com.example.chessforge.service.game.engine.history.RepetitionTracker;
 import com.example.chessforge.service.game.engine.model.*;
 import com.example.chessforge.service.game.engine.move.LegalMoveGenerator;
 import com.example.chessforge.service.game.engine.move.MoveApplier;
+import com.example.chessforge.service.game.engine.notation.FenConverter;
 import com.example.chessforge.service.game.engine.rule.AttackDetector;
 import com.example.chessforge.service.game.engine.rule.DrawEvaluator;
 import com.example.chessforge.service.game.engine.rule.PositionEvaluator;
@@ -22,13 +23,16 @@ public class GameEngine {
     private final PositionEvaluator positionEvaluator;
 
     private final DrawEvaluator drawEvaluator;
+    private final FenConverter fenConverter;
+
 
     public GameEngine(
             LegalMoveGenerator legalMoveGenerator,
             MoveApplier moveApplier,
             AttackDetector attackDetector,
             PositionEvaluator positionEvaluator,
-            DrawEvaluator drawEvaluator
+            DrawEvaluator drawEvaluator,
+            FenConverter fenConverter
     ) {
 
         this.legalMoveGenerator =
@@ -54,7 +58,18 @@ public class GameEngine {
                         positionEvaluator,
                         "Position evaluator cannot be null."
                 );
-        this.drawEvaluator = drawEvaluator;
+
+        this.drawEvaluator =
+                Objects.requireNonNull(
+                        drawEvaluator,
+                        "Draw evaluator cannot be null."
+                );
+
+        this.fenConverter =
+                Objects.requireNonNull(
+                        fenConverter,
+                        "FEN converter cannot be null."
+                );
     }
 
     // =========================================================
@@ -248,5 +263,27 @@ public class GameEngine {
                         state,
                         repetitionTracker
                 );
+    }
+
+    // =========================================================
+    // FEN
+    // =========================================================
+
+    public String toFen(
+            GameState state
+    ) {
+
+        return fenConverter.toFen(
+                state
+        );
+    }
+
+    public GameState fromFen(
+            String fen
+    ) {
+
+        return fenConverter.fromFen(
+                fen
+        );
     }
 }

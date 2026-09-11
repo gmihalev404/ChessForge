@@ -4,6 +4,7 @@ import com.example.chessforge.service.game.engine.history.PositionKeyFactory;
 import com.example.chessforge.service.game.engine.move.LegalMoveGenerator;
 import com.example.chessforge.service.game.engine.move.MoveApplier;
 import com.example.chessforge.service.game.engine.move.MoveGenerator;
+import com.example.chessforge.service.game.engine.notation.FenConverter;
 import com.example.chessforge.service.game.engine.rule.AttackDetector;
 import com.example.chessforge.service.game.engine.rule.DrawEvaluator;
 import com.example.chessforge.service.game.engine.rule.PositionEvaluator;
@@ -72,5 +73,10 @@ public class ChessEngineConfiguration {
         return new DrawEvaluator(
                 positionEvaluator
         );
+    }
+
+    @Bean
+    public FenConverter fenConverter() {
+        return new FenConverter();
     }
 }

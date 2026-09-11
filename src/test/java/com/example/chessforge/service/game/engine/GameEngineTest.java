@@ -6,6 +6,7 @@ import com.example.chessforge.service.game.engine.model.*;
 import com.example.chessforge.service.game.engine.move.LegalMoveGenerator;
 import com.example.chessforge.service.game.engine.move.MoveApplier;
 import com.example.chessforge.service.game.engine.move.MoveGenerator;
+import com.example.chessforge.service.game.engine.notation.FenConverter;
 import com.example.chessforge.service.game.engine.rule.AttackDetector;
 import com.example.chessforge.service.game.engine.rule.DrawEvaluator;
 import com.example.chessforge.service.game.engine.rule.PositionEvaluator;
@@ -56,13 +57,17 @@ class GameEngineTest {
                         positionEvaluator
                 );
 
+        FenConverter fenConverter =
+                new FenConverter();
+
         gameEngine =
                 new GameEngine(
                         legalMoveGenerator,
                         moveApplier,
                         attackDetector,
                         positionEvaluator,
-                        drawEvaluator
+                        drawEvaluator,
+                        fenConverter
                 );
     }
 
@@ -489,6 +494,35 @@ class GameEngineTest {
                         tracker
                 ).contains(
                         DrawReason.FIVEFOLD_REPETITION
+                )
+        );
+    }
+
+    @Test
+    void shouldConvertGameStateToFenAndBack() {
+
+        GameState original =
+                GameState.initial();
+
+        String fen =
+                gameEngine.toFen(
+                        original
+                );
+
+        assertEquals(
+                "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+                fen
+        );
+
+        GameState restored =
+                gameEngine.fromFen(
+                        fen
+                );
+
+        assertEquals(
+                fen,
+                gameEngine.toFen(
+                        restored
                 )
         );
     }
