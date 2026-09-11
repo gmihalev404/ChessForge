@@ -1,0 +1,432 @@
+package com.example.chessforge.service.game.engine;
+
+import com.example.chessforge.service.game.engine.model.*;
+import com.example.chessforge.service.game.engine.move.LegalMoveGenerator;
+import com.example.chessforge.service.game.engine.move.MoveApplier;
+import com.example.chessforge.service.game.engine.move.MoveGenerator;
+import com.example.chessforge.service.game.engine.rule.AttackDetector;
+import com.example.chessforge.service.game.engine.rule.PositionEvaluator;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
+import java.util.List;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+class GameEngineTest {
+
+    private GameEngine gameEngine;
+
+    @BeforeEach
+    void setUp() {
+
+        MoveGenerator moveGenerator =
+                new MoveGenerator();
+
+        MoveApplier moveApplier =
+                new MoveApplier();
+
+        AttackDetector attackDetector =
+                new AttackDetector();
+
+        LegalMoveGenerator legalMoveGenerator =
+                new LegalMoveGenerator(
+                        moveGenerator,
+                        moveApplier,
+                        attackDetector
+                );
+
+        PositionEvaluator positionEvaluator =
+                new PositionEvaluator(
+                        legalMoveGenerator,
+                        attackDetector
+                );
+
+        gameEngine =
+                new GameEngine(
+                        legalMoveGenerator,
+                        moveApplier,
+                        attackDetector,
+                        positionEvaluator
+                );
+    }
+
+    @Test
+    void initialPositionShouldHaveTwentyLegalMoves() {
+
+        GameState state =
+                GameState.initial();
+
+        List<Move> moves =
+                gameEngine
+                        .getAllLegalMoves(
+                                state
+                        );
+
+        assertEquals(
+                20,
+                moves.size()
+        );
+    }
+
+    @Test
+    void shouldRecognizeLegalMove() {
+
+        GameState state =
+                GameState.initial();
+
+        Move move =
+                Move.normal(
+                        "e2",
+                        "e4"
+                );
+
+        assertTrue(
+                gameEngine.isLegalMove(
+                        state,
+                        move
+                )
+        );
+    }
+
+    @Test
+    void shouldRejectIllegalMove() {
+
+        GameState state =
+                GameState.initial();
+
+        Move move =
+                Move.normal(
+                        "e2",
+                        "e5"
+                );
+
+        assertFalse(
+                gameEngine.isLegalMove(
+                        state,
+                        move
+                )
+        );
+    }
+
+    @Test
+    void makeMoveShouldApplyLegalMove() {
+
+        GameState state =
+                GameState.initial();
+
+        gameEngine.makeMove(
+                state,
+                Move.normal(
+                        "e2",
+                        "e4"
+                )
+        );
+
+        assertTrue(
+                state.getBoard()
+                        .isEmpty(
+                                Square.fromAlgebraic(
+                                        "e2"
+                                )
+                        )
+        );
+
+        assertEquals(
+                new Piece(
+                        PieceType.PAWN,
+                        PieceColor.WHITE
+                ),
+                state.getBoard()
+                        .getPiece(
+                                Square.fromAlgebraic(
+                                        "e4"
+                                )
+                        )
+        );
+
+        assertEquals(
+                PieceColor.BLACK,
+                state.getSideToMove()
+        );
+
+        assertEquals(
+                Square.fromAlgebraic("e3"),
+                state.getEnPassantTarget()
+        );
+    }
+
+    @Test
+    void makeMoveShouldRejectIllegalMoveWithoutChangingState() {
+
+        GameState state =
+                GameState.initial();
+
+        Move illegalMove =
+                Move.normal(
+                        "e2",
+                        "e5"
+                );
+
+        assertThrows(
+                IllegalArgumentException.class,
+                () ->
+                        gameEngine.makeMove(
+                                state,
+                                illegalMove
+                        )
+        );
+
+        assertEquals(
+                new Piece(
+                        PieceType.PAWN,
+                        PieceColor.WHITE
+                ),
+                state.getBoard()
+                        .getPiece(
+                                Square.fromAlgebraic(
+                                        "e2"
+                                )
+                        )
+        );
+
+        assertTrue(
+                state.getBoard()
+                        .isEmpty(
+                                Square.fromAlgebraic(
+                                        "e5"
+                                )
+                        )
+        );
+
+        assertEquals(
+                PieceColor.WHITE,
+                state.getSideToMove()
+        );
+    }
+
+    @Test
+    void makeMoveShouldRejectMoveThatExposesOwnKing() {
+
+        Board board =
+                new Board();
+
+        board.setPiece(
+                Square.fromAlgebraic("e1"),
+                new Piece(
+                        PieceType.KING,
+                        PieceColor.WHITE
+                )
+        );
+
+        board.setPiece(
+                Square.fromAlgebraic("e2"),
+                new Piece(
+                        PieceType.KNIGHT,
+                        PieceColor.WHITE
+                )
+        );
+
+        board.setPiece(
+                Square.fromAlgebraic("e8"),
+                new Piece(
+                        PieceType.ROOK,
+                        PieceColor.BLACK
+                )
+        );
+
+        board.setPiece(
+                Square.fromAlgebraic("a8"),
+                new Piece(
+                        PieceType.KING,
+                        PieceColor.BLACK
+                )
+        );
+
+        GameState state =
+                createState(
+                        board,
+                        PieceColor.WHITE
+                );
+
+        Move move =
+                Move.normal(
+                        "e2",
+                        "f4"
+                );
+
+        assertFalse(
+                gameEngine.isLegalMove(
+                        state,
+                        move
+                )
+        );
+
+        assertThrows(
+                IllegalArgumentException.class,
+                () ->
+                        gameEngine.makeMove(
+                                state,
+                                move
+                        )
+        );
+    }
+
+    @Test
+    void shouldDetectCheck() {
+
+        Board board =
+                new Board();
+
+        board.setPiece(
+                Square.fromAlgebraic("e1"),
+                new Piece(
+                        PieceType.KING,
+                        PieceColor.WHITE
+                )
+        );
+
+        board.setPiece(
+                Square.fromAlgebraic("e8"),
+                new Piece(
+                        PieceType.ROOK,
+                        PieceColor.BLACK
+                )
+        );
+
+        board.setPiece(
+                Square.fromAlgebraic("a8"),
+                new Piece(
+                        PieceType.KING,
+                        PieceColor.BLACK
+                )
+        );
+
+        GameState state =
+                createState(
+                        board,
+                        PieceColor.WHITE
+                );
+
+        assertTrue(
+                gameEngine.isInCheck(
+                        state
+                )
+        );
+
+        assertTrue(
+                gameEngine.isInCheck(
+                        state,
+                        PieceColor.WHITE
+                )
+        );
+
+        assertFalse(
+                gameEngine.isInCheck(
+                        state,
+                        PieceColor.BLACK
+                )
+        );
+    }
+
+    @Test
+    void shouldDetectCheckmate() {
+
+        Board board =
+                new Board();
+
+        board.setPiece(
+                Square.fromAlgebraic("h1"),
+                new Piece(
+                        PieceType.KING,
+                        PieceColor.WHITE
+                )
+        );
+
+        board.setPiece(
+                Square.fromAlgebraic("g2"),
+                new Piece(
+                        PieceType.QUEEN,
+                        PieceColor.BLACK
+                )
+        );
+
+        board.setPiece(
+                Square.fromAlgebraic("f3"),
+                new Piece(
+                        PieceType.KING,
+                        PieceColor.BLACK
+                )
+        );
+
+        GameState state =
+                createState(
+                        board,
+                        PieceColor.WHITE
+                );
+
+        assertTrue(
+                gameEngine.isCheckmate(
+                        state
+                )
+        );
+
+        assertFalse(
+                gameEngine.isStalemate(
+                        state
+                )
+        );
+    }
+
+    @Test
+    void shouldReturnLegalMovesForPiece() {
+
+        GameState state =
+                GameState.initial();
+
+        List<Move> moves =
+                gameEngine.getLegalMoves(
+                        state,
+                        Square.fromAlgebraic("e2")
+                );
+
+        assertEquals(
+                2,
+                moves.size()
+        );
+
+        assertTrue(
+                moves.contains(
+                        Move.normal("e2", "e3")
+                )
+        );
+
+        assertTrue(
+                moves.contains(
+                        Move.normal("e2", "e4")
+                )
+        );
+    }
+
+    // =========================================================
+    // HELPERS
+    // =========================================================
+
+    private GameState createState(
+            Board board,
+            PieceColor sideToMove
+    ) {
+
+        return new GameState(
+                board,
+                sideToMove,
+                false,
+                false,
+                false,
+                false,
+                null,
+                0,
+                1
+        );
+    }
+}
