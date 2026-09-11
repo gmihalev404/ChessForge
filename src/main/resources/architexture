@@ -1,53 +1,636 @@
-                         User
-                ┌─────────┼──────────────┐
-                │         │              │
-                ▼         ▼              ▼
-         FriendRequest Friendship    Challenge
-                                        │
-                                        │ accepted
-                                        ▼
-                                      Game
-                                    /      \
-                                 White    Black
+1. ChessForge layered architecture
 
+Controller
+    ↓
+Service
+    ↓
+Repository
+    ↓
+Database
+
+domains: user, friendship, challenge, game, tournament
+
+<------------------------------------------------------------------------>
+
+2. Friendship architecture
+
+User A
+  │
+  │ send request
+  ▼
+FriendRequestService
+  │
+  ├── validate users
+  ├── check existing request/friendship
+  ├── create FriendRequest(PENDING)
+  │
+  ▼
+FriendRequestRepository
+
+accept:
+FriendRequest
+    │
+    ▼
+FriendshipService
+    │
+    ├── sender
+    ├── receiver
+    │
+    ├── create Friendship
+    └── mark request ACCEPTED
+
+<------------------------------------------------------------------------>
+
+3. Challenge architecture
 
 User
  │
+ │ challenge
  ▼
-TournamentParticipant
+ChallengeService
+ │
+ ├── challenger
+ ├── opponent
+ ├── TimeControl
+ ├── ColorPreference
+ ├── rated
+ ├── expiresAt
  │
  ▼
-Tournament
- │
- ▼
-TournamentMatch
- │
- ▼
-Game
+Challenge
 
-<----------------------------------------------------------------------------------------------->
+accept:
+ChallengeService
+      │
+      ├── validate PENDING
+      ├── determine colors
+      │
+      ▼
+   GameService
+      │
+      ▼
+     Game
+
+expiration:
+ChallengeExpirationScheduler
+          │
+          ▼
+    ChallengeService
+          │
+          ▼
+PENDING + expired
+          │
+          ▼
+       EXPIRED
+
+<------------------------------------------------------------------------>
+
+4. Game + Rating architecture
+
+createGame()
+    ↓
+WAITING
+    ↓
+startGame()
+    ↓
+IN_PROGRESS
+    ↓
+finishGame()
+    ↓
+FINISHED
+
+Game
+├── whitePlayer
+├── blackPlayer
+├── timeControl
+├── rated
+├── status
+├── result
+├── termination
+├── clocks
+├── ratings before/after
+├── PGN
+├── FEN
+└── tournamentMatch
+
+finish:
+GameService.finishGame()
+        │
+        ├──────────────► RatingService
+        │                   │
+        │                   ▼
+        │             update player ratings
+        │
+        │
+        └── if tournament game
+                 │
+                 ▼
+          TournamentService
+
+                              ┌─► RatingService
+          GameService ────────┤
+                              └─► TournamentService
+
+rating:
+Game
+ │
+ ├── rated = false
+ │       └── no User rating changes
+ │
+ └── rated = true
+         │
+         ▼
+    RatingService
+         │
+         ├── determine rating category
+         │   Bullet / Blitz / Rapid / Classical
+         │
+         ├── Elo calculation
+         │
+         └── update both users
+
+<------------------------------------------------------------------------>
+
+5. Tournament architecture
 
 TournamentService
-│
-├─ createTournament
-├─ joinTournament
-├─ withdraw
-├─ forfeit
-├─ startTournament
-├─ createNextRound
-├─ reportNoShow
-├─ finishTournament
-├─ getParticipants
-└─ getStandings
-       │
-       ├── TournamentPairingService
-       │      ├─ single elimination
-       │      ├─ round robin
-       │      └─ swiss
-       │
-       └── TournamentLeaderboardService
-              ├─ points
-              ├─ Buchholz
-              ├─ Sonneborn-Berger
-              ├─ direct encounter
-              └─ configured tie-break ordering
+      │
+      ├── TournamentPairingService
+      │
+      ├── TournamentLeaderboardService
+      │
+      ├── RatingService
+      │
+      ├── TournamentRepository
+      │
+      ├── TournamentParticipantRepository
+      │
+      └── TournamentMatchRepository
+
+<------------------------------------------------------------------------>
+
+6. Tournament entity model
+
+Tournament
+ ├── TournamentParticipant
+ │      └── User
+ │
+ └── TournamentMatch
+        ├── whiteParticipant
+        └── blackParticipant
+
+        TournamentMatch
+            1
+            │
+            │
+            N
+           Game
+
+<------------------------------------------------------------------------>
+
+7. Tournament lifecycle
+
+REGISTRATION
+     │                                         REGISTRATION / IN_PROGRESS
+     │ startTournament()         or                         │
+     ▼                                                      ▼
+IN_PROGRESS                                             CANCELLED
+     │
+     │ all rounds complete
+     ▼
+FINISHED
+
+start:
+startTournament()
+      │
+      ├── validate
+      ├── snapshot ratings
+      ├── assign seeds
+      ├── create initial pairings
+      ├── currentRound = 1
+      └── resolve automatic results
+
+<------------------------------------------------------------------------>
+
+8. Tournament pairing subsystem
+
+Single Elimination:
+Seeds
+  │
+  ▼
+Fixed bracket
+  │
+  ▼
+Round 1
+  │
+  ▼
+Winners follow bracket lineage
+  │
+  ▼
+Semifinals
+  │
+  ├── winners ─────► Final
+  │
+  └── losers ──────► Third-place match
+
+Example: SF1: A ─┐
+                 ├── A ─┐
+              B ─┘      │
+                        ├── Final
+              C ─┐      │
+                 ├── D ─┘
+              D ─┘
+
+
+         SF losers:
+         B ─┐
+            ├── Third place
+         C ─┘
+
+
+Round Robin:
+Participants
+    │
+    ▼
+Circle algorithm
+    │
+    ▼
+Entire schedule generated up front
+
+Swiss:
+Participants
+     │
+     ▼
+Sort by:
+score DESC
+seed ASC
+     │
+     ▼
+Score groups
+     │
+     ▼
+Upper / Lower halves
+     │
+     ▼
+Candidate search
+     │
+     ├── opposite half same group
+     ├── same half same group
+     └── lower score groups
+     │
+     ▼
+No-rematch check
+     │
+     ▼
+Color preference
+     │
+     ▼
+Backtracking
+
+<------------------------------------------------------------------------>
+
+9. Tournament leaderboard subsystem
+
+TournamentParticipant
+        +
+TournamentMatch history
+        │
+        ▼
+TournamentLeaderboardService
+        │
+        ▼
+Primary:
+score DESC
+        │
+        ▼
+Tie-break 1
+        │
+        ▼
+Tie-break 2
+        │
+        ▼
+...
+        │
+        ▼
+Deterministic fallback
+
+Supported tie-breaks:
+BUCHHOLZ
+BUCHHOLZ_CUT_1
+SONNEBORN_BERGER
+DIRECT_ENCOUNTER
+WINS
+BLACK_WINS
+RATING
+ALPHABETICAL
+
+end:
+Swiss / Round Robin:
+        │
+        ▼
+final leaderboard
+        │
+        ▼
+finalRank = 1..N
+
+
+Single Elimination:
+Final
+├── winner → 1
+└── loser  → 2
+
+Third-place
+├── winner → 3
+└── loser  → 4
+
+Others
+└── finalRank = null
+
+<------------------------------------------------------------------------>
+
+10. Tournament ↔ Game integration
+
+TournamentMatch
+      │
+      │ create game
+      ▼
+GameService
+      │
+      ▼
+Game
+      │
+      │ finish
+      ▼
+GameService.finishGame()
+      │
+      ├── RatingService
+      │
+      └── TournamentService.recordGameResult()
+                   │
+                   ▼
+            TournamentMatch
+                   │
+                   ▼
+            round completion
+                   │
+                   ▼
+             next round
+
+
+             Tournament
+                ↓
+             Pairing
+                ↓
+             TournamentMatch
+                ↓
+             Game
+                ↓
+             Result
+                ↓
+             TournamentMatch completed
+                ↓
+             All round matches completed?
+                ↓ yes
+             Next round / Finish tournament
+
+<------------------------------------------------------------------------>
+
+11. GameEngine
+
+GameEngine
+    │
+    ├── State
+    ├── Move generation
+    ├── Rules
+    └── Serialization/history
+
+Model:
+GameState
+   │
+   ├── Board
+   │    └── Piece[][]
+   │
+   ├── sideToMove
+   ├── castlingRights
+   ├── enPassantTarget
+   ├── halfMoveClock
+   └── fullMoveNumber
+
+Objects:
+Piece
+├── PieceType
+└── PieceColor
+
+Square
+├── file
+└── rank
+
+Move
+├── from
+├── to
+├── MoveType
+└── promotion
+
+<------------------------------------------------------------------------>
+
+12. GameEngine move architecture
+
+Requested Move
+     │
+     ▼
+Generate pseudo-legal moves
+     │
+     ▼
+Does requested move exist?
+     │
+     ▼
+Simulate move
+     │
+     ▼
+Is own king in check?
+     │
+ ┌───┴────┐
+ yes       no
+  │         │
+illegal    legal
+
+<------------------------------------------------------------------------>
+
+13. Piece movement
+
+PieceType
+    │
+    ├── PAWN
+    │     ├── forward
+    │     ├── double move
+    │     ├── capture
+    │     ├── promotion
+    │     └── en passant
+    │
+    ├── KNIGHT
+    │
+    ├── BISHOP
+    │     └── diagonal sliding
+    │
+    ├── ROOK
+    │     └── orthogonal sliding
+    │
+    ├── QUEEN
+    │     └── bishop + rook logic
+    │
+    └── KING
+          ├── normal move
+          └── castling
+
+<------------------------------------------------------------------------>
+
+14. Check architecture
+
+King square
+    │
+    ▼
+isSquareAttacked()
+    │
+    ├── pawn attacks
+    ├── knight attacks
+    ├── bishop/queen diagonals
+    ├── rook/queen lines
+    └── king attacks
+
+isInCheck(color)
+      │
+      ▼
+find king
+      │
+      ▼
+isSquareAttacked(kingSquare, opponent)
+
+inCheck + no legal moves = CHECKMATE
+not in check + no legal moves = STALEMATE
+
+<------------------------------------------------------------------------>
+
+15. Engine game-ending logic
+
+GameState
+   │
+   ▼
+legal moves?
+   │
+   ├── no + check
+   │      └── CHECKMATE
+   │
+   ├── no + no check
+   │      └── STALEMATE
+   │
+   ├── insufficient material
+   │      └── DRAW
+   │
+   ├── repetition >= 3
+   │      └── DRAW
+   │
+   └── halfmoveClock >= 100
+          └── FIFTY_MOVE_RULE
+
+<------------------------------------------------------------------------>
+
+16. FEN architecture
+
+GameState
+   │
+   ▼
+FenConverter
+
+Example: Board
+         +
+         sideToMove
+         +
+         castling rights
+         +                          ->       rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR
+                                             w KQkq - 0 1
+         enPassant
+         +
+         halfmove
+         +
+         fullmove
+
+<------------------------------------------------------------------------>
+
+17. Move history / PGN
+
+GameState
+     +
+List<MoveRecord>
+     │
+     ▼
+PGN generator
+
+MoveRecord
+├── Move
+├── movedPiece
+├── capturedPiece
+├── FEN before
+├── FEN after
+├── check
+├── checkmate
+└── SAN
+
+allows undo/repetition
+
+<------------------------------------------------------------------------>
+
+18. GameEngine ↔ GameService
+
+WebSocket
+    │
+    ▼
+GameService
+    │
+    ▼
+GameEngine
+    │
+    ├── validate
+    ├── makeMove
+    └── determine result
+    │
+    ▼
+GameService
+    │
+    ├── update Game.currentFen
+    ├── update PGN
+    ├── update clocks
+    └── persist
+
+game over:
+GameEngine
+   │
+   └── CHECKMATE
+          │
+          ▼
+GameService.finishGame()
+          │
+          ├── RatingService
+          └── TournamentService
+
+<------------------------------------------------------------------------>
+
+ALL
+
+Friendship
+    │
+Challenge
+    │
+    ▼
+Game
+    │
+    ▼
+GameEngine
+    │
+    ▼
+Game result
+   ┌┴──────────────┐
+   ▼               ▼
+Rating         Tournament
+                   │
+                   ▼
+               Next Round
