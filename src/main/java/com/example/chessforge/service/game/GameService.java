@@ -25,6 +25,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 
 @Service
@@ -305,6 +306,83 @@ public class GameService {
 
         return gameRepository.save(
                 game
+        );
+    }
+
+    @Transactional
+    public Game claimDraw(
+            Long gameId,
+            User player
+    ) {
+
+        Game game =
+                gameRepository.findById(gameId)
+                        .orElseThrow(() ->
+                                new IllegalArgumentException(
+                                        "Game not found."
+                                )
+                        );
+
+        if (game.getStatus()
+                != GameStatus.IN_PROGRESS) {
+
+            throw new IllegalStateException(
+                    "Game is not in progress."
+            );
+        }
+
+        GameState state =
+                loadGameState(game);
+
+        validatePlayerTurn(
+                game,
+                player,
+                state
+        );
+
+        RepetitionTracker repetitionTracker =
+                restoreRepetitionTracker(
+                        game
+                );
+
+        Set<DrawReason> reasons =
+                gameEngine.getClaimableDrawReasons(
+                        state,
+                        repetitionTracker
+                );
+
+        if (reasons.contains(
+                DrawReason.THREEFOLD_REPETITION
+        )) {
+
+            finishGame(
+                    game,
+                    GameResult.DRAW,
+                    GameTermination.THREEFOLD_REPETITION
+            );
+
+            return gameRepository.save(
+                    game
+            );
+        }
+
+        if (reasons.contains(
+                DrawReason.FIFTY_MOVE_RULE
+        )) {
+
+            finishGame(
+                    game,
+                    GameResult.DRAW,
+                    GameTermination.FIFTY_MOVE_RULE
+            );
+
+            return gameRepository.save(
+                    game
+            );
+        }
+
+        throw new IllegalStateException(
+                "The current position does not allow a draw claim."
         );
     }
 

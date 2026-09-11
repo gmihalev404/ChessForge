@@ -39,6 +39,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -2119,7 +2120,393 @@ class GameServiceTest {
                 );
     }
 
+    @Test
+    void claimDrawShouldFinishGameOnThreefoldRepetition() {
 
+        Long gameId = 1L;
+
+        Game game =
+                createWaitingGame(
+                        challenger,
+                        opponent,
+                        TimeControl.values()[0]
+                );
+
+        setId(game, gameId);
+
+        game.setStatus(
+                GameStatus.IN_PROGRESS
+        );
+
+        game.setCurrentFen(
+                "current-fen"
+        );
+
+        GameState state =
+                GameState.initial();
+
+        when(gameRepository.findById(gameId))
+                .thenReturn(
+                        Optional.of(game)
+                );
+
+        when(gameEngine.fromFen("current-fen"))
+                .thenReturn(state);
+
+        when(gameEngine.createRepetitionTracker(
+                any(GameState.class)
+        )).thenReturn(
+                repetitionTracker
+        );
+
+        when(gameMoveRepository
+                .findByGameIdOrderByPlyNumberAsc(gameId))
+                .thenReturn(
+                        List.of()
+                );
+
+        when(gameEngine.getClaimableDrawReasons(
+                state,
+                repetitionTracker
+        )).thenReturn(
+                Set.of(
+                        DrawReason.THREEFOLD_REPETITION
+                )
+        );
+
+        when(gameRepository.save(game))
+                .thenReturn(game);
+
+        Game result =
+                gameService.claimDraw(
+                        gameId,
+                        challenger
+                );
+
+        assertEquals(
+                GameStatus.FINISHED,
+                game.getStatus()
+        );
+
+        assertEquals(
+                GameResult.DRAW,
+                game.getResult()
+        );
+
+        assertEquals(
+                GameTermination.THREEFOLD_REPETITION,
+                game.getTermination()
+        );
+
+        verify(ratingService)
+                .updateRatings(game);
+
+        assertSame(
+                game,
+                result
+        );
+    }
+
+    @Test
+    void claimDrawShouldRejectWhenNoClaimableDrawExists() {
+
+        Long gameId = 1L;
+
+        Game game =
+                createWaitingGame(
+                        challenger,
+                        opponent,
+                        TimeControl.values()[0]
+                );
+
+        setId(game, gameId);
+
+        game.setStatus(
+                GameStatus.IN_PROGRESS
+        );
+
+        game.setCurrentFen(
+                "current-fen"
+        );
+
+        GameState state =
+                GameState.initial();
+
+        when(gameRepository.findById(gameId))
+                .thenReturn(
+                        Optional.of(game)
+                );
+
+        when(gameEngine.fromFen("current-fen"))
+                .thenReturn(state);
+
+        when(gameEngine.createRepetitionTracker(
+                any(GameState.class)
+        )).thenReturn(
+                repetitionTracker
+        );
+
+        when(gameMoveRepository
+                .findByGameIdOrderByPlyNumberAsc(gameId))
+                .thenReturn(
+                        List.of()
+                );
+
+        when(gameEngine.getClaimableDrawReasons(
+                state,
+                repetitionTracker
+        )).thenReturn(
+                Set.of()
+        );
+
+        assertThrows(
+                IllegalStateException.class,
+                () ->
+                        gameService.claimDraw(
+                                gameId,
+                                challenger
+                        )
+        );
+
+        verify(ratingService, never())
+                .updateRatings(any());
+
+        verify(gameRepository, never())
+                .save(any());
+    }
+
+    @Test
+    void claimDrawShouldFinishGameOnFiftyMoveRule() {
+
+        Long gameId = 1L;
+
+        Game game =
+                createWaitingGame(
+                        challenger,
+                        opponent,
+                        TimeControl.values()[0]
+                );
+
+        setId(
+                game,
+                gameId
+        );
+
+        game.setStatus(
+                GameStatus.IN_PROGRESS
+        );
+
+        game.setCurrentFen(
+                "current-fen"
+        );
+
+        GameState state =
+                GameState.initial();
+
+        when(gameRepository.findById(gameId))
+                .thenReturn(
+                        Optional.of(game)
+                );
+
+        when(gameEngine.fromFen(
+                "current-fen"
+        )).thenReturn(state);
+
+        mockEmptyRepetitionHistory(
+                gameId
+        );
+
+        when(gameEngine.getClaimableDrawReasons(
+                state,
+                repetitionTracker
+        )).thenReturn(
+                Set.of(
+                        DrawReason.FIFTY_MOVE_RULE
+                )
+        );
+
+        when(gameRepository.save(game))
+                .thenReturn(game);
+
+        Game result =
+                gameService.claimDraw(
+                        gameId,
+                        challenger
+                );
+
+        assertEquals(
+                GameStatus.FINISHED,
+                game.getStatus()
+        );
+
+        assertEquals(
+                GameResult.DRAW,
+                game.getResult()
+        );
+
+        assertEquals(
+                GameTermination.FIFTY_MOVE_RULE,
+                game.getTermination()
+        );
+
+        assertNotNull(
+                game.getFinishedAt()
+        );
+
+        verify(gameEngine)
+                .getClaimableDrawReasons(
+                        state,
+                        repetitionTracker
+                );
+
+        verify(ratingService)
+                .updateRatings(
+                        game
+                );
+
+        verify(gameRepository)
+                .save(
+                        game
+                );
+
+        assertSame(
+                game,
+                result
+        );
+    }
+
+    @Test
+    void claimDrawShouldRejectWhenGameIsNotInProgress() {
+
+        Long gameId = 1L;
+
+        Game game =
+                createWaitingGame(
+                        challenger,
+                        opponent,
+                        TimeControl.values()[0]
+                );
+
+        setId(
+                game,
+                gameId
+        );
+
+        // createWaitingGame() already sets WAITING.
+
+        when(gameRepository.findById(gameId))
+                .thenReturn(
+                        Optional.of(game)
+                );
+
+        IllegalStateException exception =
+                assertThrows(
+                        IllegalStateException.class,
+                        () ->
+                                gameService.claimDraw(
+                                        gameId,
+                                        challenger
+                                )
+                );
+
+        assertEquals(
+                "Game is not in progress.",
+                exception.getMessage()
+        );
+
+        verify(gameEngine, never())
+                .fromFen(
+                        anyString()
+                );
+
+        verify(gameEngine, never())
+                .createRepetitionTracker(
+                        any()
+                );
+
+        verify(gameRepository, never())
+                .save(
+                        any()
+                );
+
+        verifyNoInteractions(
+                ratingService
+        );
+    }
+
+    @Test
+    void claimDrawShouldRejectPlayerWhenItIsNotTheirTurn() {
+
+        Long gameId = 1L;
+
+        Game game =
+                createWaitingGame(
+                        challenger,
+                        opponent,
+                        TimeControl.values()[0]
+                );
+
+        setId(
+                game,
+                gameId
+        );
+
+        game.setStatus(
+                GameStatus.IN_PROGRESS
+        );
+
+        game.setCurrentFen(
+                "current-fen"
+        );
+
+        // Initial state => WHITE to move.
+        GameState state =
+                GameState.initial();
+
+        when(gameRepository.findById(gameId))
+                .thenReturn(
+                        Optional.of(game)
+                );
+
+        when(gameEngine.fromFen(
+                "current-fen"
+        )).thenReturn(state);
+
+        IllegalStateException exception =
+                assertThrows(
+                        IllegalStateException.class,
+                        () ->
+                                gameService.claimDraw(
+                                        gameId,
+                                        opponent
+                                )
+                );
+
+        assertEquals(
+                "It is not this player's turn.",
+                exception.getMessage()
+        );
+
+        verify(gameEngine, never())
+                .createRepetitionTracker(
+                        any()
+                );
+
+        verify(gameEngine, never())
+                .getClaimableDrawReasons(
+                        any(),
+                        any()
+                );
+
+        verify(gameRepository, never())
+                .save(
+                        any()
+                );
+
+        verifyNoInteractions(
+                ratingService
+        );
+    }
 
     // =========================================================
     // HELPERS
