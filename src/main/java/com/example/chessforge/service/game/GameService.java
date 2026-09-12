@@ -16,6 +16,7 @@ import com.example.chessforge.model.enums.tournament.TournamentMatchStatus;
 import com.example.chessforge.repository.game.GameMoveRepository;
 import com.example.chessforge.repository.game.GameRepository;
 import com.example.chessforge.service.game.dto.GameStateResponse;
+import com.example.chessforge.service.game.dto.GameSummaryResponse;
 import com.example.chessforge.service.game.engine.GameEngine;
 import com.example.chessforge.service.game.engine.history.RepetitionTracker;
 import com.example.chessforge.service.game.engine.model.*;
@@ -46,6 +47,7 @@ public class GameService {
     private final Clock clock;
     private final PgnGenerator pgnGenerator;
     private final GameStateMapper gameStateMapper;
+    private final GameSummaryMapper gameSummaryMapper;
 
     @Transactional
     public Game createGameFromChallenge(Challenge challenge) {
@@ -257,6 +259,25 @@ public class GameService {
 
         game.setWhiteRatingAfter(game.getWhiteRatingBefore());
         game.setBlackRatingAfter(game.getBlackRatingBefore());
+    }
+
+    public List<GameSummaryResponse> getGameSummariesForUser(
+            User user
+    ) {
+
+        return gameRepository
+                .findByWhitePlayerOrBlackPlayerOrderByStartedAtDesc(
+                        user,
+                        user
+                )
+                .stream()
+                .map(game ->
+                        gameSummaryMapper.toResponse(
+                                game,
+                                user
+                        )
+                )
+                .toList();
     }
 
     public List<Game> getGamesForUser(User user) {

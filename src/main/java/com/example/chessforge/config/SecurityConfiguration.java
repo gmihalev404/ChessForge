@@ -20,10 +20,22 @@ public class SecurityConfiguration {
                 .authorizeHttpRequests(auth ->
                         auth
                                 .requestMatchers(
+                                        "/",
+                                        "/login",
+                                        "/register"
+                                )
+                                .permitAll()
+
+                                .requestMatchers(
                                         "/ws",
-                                        "/ws/**"
+                                        "/ws/**",
+                                        "/games/**",
+                                        "/friends/**",
+                                        "/challenges/**",
+                                        "/tournaments/**"
                                 )
                                 .authenticated()
+
                                 .anyRequest()
                                 .permitAll()
                 )

@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en"
+      xmlns:th="http://www.thymeleaf.org"
+      data-bs-theme="dark">
+
+<head>
+    <meta charset="UTF-8">
+
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1">
+
+    <title>Games | ChessForge</title>
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css"
+          rel="stylesheet"
+          integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB"
+          crossorigin="anonymous">
+</head>
+
+<body class="bg-body-tertiary">
+
+<nav class="navbar navbar-expand-lg bg-body border-bottom">
+
+    <div class="container">
+
+        <a class="navbar-brand fw-bold"
+           th:href="@{/}">
+            ChessForge
+        </a>
+
+        <div class="d-flex align-items-center gap-3">
+
+            <span class="text-body-secondary">
+                <strong th:text="${username}">
+                    username
+                </strong>
+            </span>
+
+            <form th:action="@{/logout}"
+                  method="post"
+                  class="m-0">
+
+                <button type="submit"
+                        class="btn btn-outline-danger btn-sm">
+                    Log out
+                </button>
+
+            </form>
+
+        </div>
+
+    </div>
+
+</nav>
+
+
+<main class="container py-5">
+
+    <div class="d-flex justify-content-between
+                align-items-center mb-4">
+
+        <div>
+
+            <h1 class="fw-bold mb-1">
+                My Games
+            </h1>
+
+            <p class="text-body-secondary mb-0">
+                Your active and previous ChessForge games.
+            </p>
+
+        </div>
+
+        <button class="btn btn-primary"
+                type="button"
+                disabled>
+            New Game
+        </button>
+
+    </div>
+
+
+    <div th:if="${#lists.isEmpty(games)}"
+         class="card border-0 shadow-sm">
+
+        <div class="card-body text-center py-5">
+
+            <h4>
+                No games yet
+            </h4>
+
+            <p class="text-body-secondary mb-0">
+                Your games will appear here once you start playing.
+            </p>
+
+        </div>
+
+    </div>
+
+
+    <div th:unless="${#lists.isEmpty(games)}"
+         class="card border-0 shadow-sm">
+
+        <div class="table-responsive">
+
+            <table class="table table-hover align-middle mb-0">
+
+                <thead>
+                <tr>
+                    <th>Opponent</th>
+                    <th>Color</th>
+                    <th>Time Control</th>
+                    <th>Type</th>
+                    <th>Status</th>
+                    <th>Result</th>
+                    <th></th>
+                </tr>
+                </thead>
+
+                <tbody>
+
+                <tr th:each="game : ${games}">
+
+                    <td>
+                        <strong th:text="${game.opponentUsername}">
+                            opponent
+                        </strong>
+                    </td>
+
+                    <td th:text="${game.white ? 'White' : 'Black'}">
+                        White
+                    </td>
+
+                    <td th:text="${game.timeControl}">
+                        RAPID
+                    </td>
+
+                    <td>
+                        <span th:if="${game.rated}"
+                              class="badge text-bg-warning">
+                            Rated
+                        </span>
+
+                        <span th:unless="${game.rated}"
+                              class="badge text-bg-secondary">
+                            Casual
+                        </span>
+                    </td>
+
+                    <td>
+                        <span class="badge text-bg-primary"
+                              th:text="${game.status}">
+                            IN_PROGRESS
+                        </span>
+                    </td>
+
+                    <td th:text="${game.result != null
+                                ? game.result
+                                : '-'}">
+                        -
+                    </td>
+
+                    <td class="text-end">
+
+                        <a th:href="@{/games/{id}(id=${game.gameId})}"
+                           class="btn btn-outline-primary btn-sm">
+                            Open
+                        </a>
+
+                    </td>
+
+                </tr>
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+    </div>
+
+</main>
+
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"
+        integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI"
+        crossorigin="anonymous">
+</script>
+
+</body>
+</html>
