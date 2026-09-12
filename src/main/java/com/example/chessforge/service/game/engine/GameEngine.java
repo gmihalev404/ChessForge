@@ -5,7 +5,9 @@ import com.example.chessforge.service.game.engine.history.RepetitionTracker;
 import com.example.chessforge.service.game.engine.model.*;
 import com.example.chessforge.service.game.engine.move.LegalMoveGenerator;
 import com.example.chessforge.service.game.engine.move.MoveApplier;
+import com.example.chessforge.service.game.engine.move.MoveResolver;
 import com.example.chessforge.service.game.engine.notation.FenConverter;
+import com.example.chessforge.service.game.engine.notation.SanGenerator;
 import com.example.chessforge.service.game.engine.rule.AttackDetector;
 import com.example.chessforge.service.game.engine.rule.DrawEvaluator;
 import com.example.chessforge.service.game.engine.rule.PositionEvaluator;
@@ -26,7 +28,9 @@ public class GameEngine {
     private final DrawEvaluator drawEvaluator;
     private final FenConverter fenConverter;
     private final PositionKeyFactory positionKeyFactory;
+    private final SanGenerator sanGenerator;
 
+    private final MoveResolver moveResolver;
 
     public GameEngine(
             LegalMoveGenerator legalMoveGenerator,
@@ -34,7 +38,9 @@ public class GameEngine {
             AttackDetector attackDetector,
             PositionEvaluator positionEvaluator,
             DrawEvaluator drawEvaluator,
-            FenConverter fenConverter, PositionKeyFactory positionKeyFactory
+            FenConverter fenConverter,
+            PositionKeyFactory positionKeyFactory,
+            SanGenerator sanGenerator, MoveResolver moveResolver
     ) {
 
         this.legalMoveGenerator =
@@ -77,7 +83,16 @@ public class GameEngine {
                         positionKeyFactory,
                         "Position key factory cannot be null."
                 );
-        ;
+        this.sanGenerator =
+                Objects.requireNonNull(
+                        sanGenerator,
+                        "SAN generator cannot be null."
+                );
+        this.moveResolver =
+                Objects.requireNonNull(
+                        moveResolver,
+                        "Move resolver cannot be null."
+                );
     }
 
     // =========================================================
@@ -304,5 +319,43 @@ public class GameEngine {
                 initialState
         );
 
+    }
+
+    public boolean hasInsufficientMatingMaterial(
+            GameState state,
+            PieceColor color
+    ) {
+        return positionEvaluator
+                .hasInsufficientMatingMaterial(
+                        state,
+                        color
+                );
+    }
+    public String generateSan(
+            GameState beforeState,
+            Move move,
+            GameState afterState
+    ) {
+
+        return sanGenerator.generate(
+                beforeState,
+                move,
+                afterState
+        );
+    }
+
+    public Move resolveMove(
+            GameState state,
+            Square from,
+            Square to,
+            PieceType promotion
+    ) {
+
+        return moveResolver.resolve(
+                state,
+                from,
+                to,
+                promotion
+        );
     }
 }

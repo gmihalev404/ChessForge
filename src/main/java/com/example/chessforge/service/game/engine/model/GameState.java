@@ -1,7 +1,12 @@
 package com.example.chessforge.service.game.engine.model;
 
+import lombok.Getter;
+import lombok.Setter;
+
 import java.util.Objects;
 
+@Setter
+@Getter
 public class GameState {
 
     private Board board;
@@ -172,25 +177,9 @@ public class GameState {
         return whiteKingSideCastlingAllowed;
     }
 
-    public void setWhiteKingSideCastlingAllowed(
-            boolean allowed
-    ) {
-
-        this.whiteKingSideCastlingAllowed =
-                allowed;
-    }
-
     public boolean isWhiteQueenSideCastlingAllowed() {
 
         return whiteQueenSideCastlingAllowed;
-    }
-
-    public void setWhiteQueenSideCastlingAllowed(
-            boolean allowed
-    ) {
-
-        this.whiteQueenSideCastlingAllowed =
-                allowed;
     }
 
     public boolean isBlackKingSideCastlingAllowed() {
@@ -198,25 +187,9 @@ public class GameState {
         return blackKingSideCastlingAllowed;
     }
 
-    public void setBlackKingSideCastlingAllowed(
-            boolean allowed
-    ) {
-
-        this.blackKingSideCastlingAllowed =
-                allowed;
-    }
-
     public boolean isBlackQueenSideCastlingAllowed() {
 
         return blackQueenSideCastlingAllowed;
-    }
-
-    public void setBlackQueenSideCastlingAllowed(
-            boolean allowed
-    ) {
-
-        this.blackQueenSideCastlingAllowed =
-                allowed;
     }
 
     // =========================================================
@@ -226,14 +199,6 @@ public class GameState {
     public Square getEnPassantTarget() {
 
         return enPassantTarget;
-    }
-
-    public void setEnPassantTarget(
-            Square enPassantTarget
-    ) {
-
-        this.enPassantTarget =
-                enPassantTarget;
     }
 
     // =========================================================

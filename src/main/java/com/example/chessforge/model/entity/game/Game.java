@@ -13,7 +13,15 @@ import lombok.*;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "games")
+@Table(
+        name = "games",
+        indexes = {
+                @Index(
+                        name = "idx_games_status_turn_expires_at",
+                        columnList = "status, turn_expires_at"
+                )
+        }
+)
 @Getter
 @Setter
 @NoArgsConstructor
@@ -49,8 +57,11 @@ public class Game extends BaseEntity {
     private Integer whiteRatingAfter;
     private Integer blackRatingAfter;
 
-    private Integer whiteTimeRemaining;
-    private Integer blackTimeRemaining;
+    @Column(nullable = false)
+    private Long whiteTimeRemainingMillis;
+
+    @Column(nullable = false)
+    private Long blackTimeRemainingMillis;
 
     @Lob
     private String pgn;
@@ -68,4 +79,14 @@ public class Game extends BaseEntity {
 
     @Enumerated(EnumType.STRING)
     private GameTermination termination;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "draw_offer_by_id")
+    private User drawOfferBy;
+
+    @Column(name = "turn_started_at")
+    private LocalDateTime turnStartedAt;
+
+    @Column(name = "turn_expires_at")
+    private LocalDateTime turnExpiresAt;
 }

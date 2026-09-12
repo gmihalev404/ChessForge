@@ -545,6 +545,293 @@ class PositionEvaluatorTest {
         );
     }
 
+    @Test
+    void shouldHaveInsufficientMatingMaterialWithKingOnly() {
+
+        GameState state =
+                createEmptyState();
+
+        place(
+                state,
+                "e1",
+                PieceType.KING,
+                PieceColor.WHITE
+        );
+
+        place(
+                state,
+                "e8",
+                PieceType.KING,
+                PieceColor.BLACK
+        );
+
+        assertTrue(
+                positionEvaluator
+                        .hasInsufficientMatingMaterial(
+                                state,
+                                PieceColor.WHITE
+                        )
+        );
+    }
+
+    @Test
+    void shouldHaveInsufficientMatingMaterialWithBishopAgainstBareKing() {
+
+        GameState state =
+                createEmptyState();
+
+        place(
+                state,
+                "e1",
+                PieceType.KING,
+                PieceColor.WHITE
+        );
+
+        place(
+                state,
+                "c1",
+                PieceType.BISHOP,
+                PieceColor.WHITE
+        );
+
+        place(
+                state,
+                "e8",
+                PieceType.KING,
+                PieceColor.BLACK
+        );
+
+        assertTrue(
+                positionEvaluator
+                        .hasInsufficientMatingMaterial(
+                                state,
+                                PieceColor.WHITE
+                        )
+        );
+    }
+
+    @Test
+    void shouldHaveInsufficientMatingMaterialWithKnightAgainstBareKing() {
+
+        GameState state =
+                createEmptyState();
+
+        place(
+                state,
+                "e1",
+                PieceType.KING,
+                PieceColor.WHITE
+        );
+
+        place(
+                state,
+                "g1",
+                PieceType.KNIGHT,
+                PieceColor.WHITE
+        );
+
+        place(
+                state,
+                "e8",
+                PieceType.KING,
+                PieceColor.BLACK
+        );
+
+        assertTrue(
+                positionEvaluator
+                        .hasInsufficientMatingMaterial(
+                                state,
+                                PieceColor.WHITE
+                        )
+        );
+    }
+
+    @Test
+    void shouldHaveSufficientMatingMaterialWithQueen() {
+
+        GameState state =
+                createEmptyState();
+
+        place(state, "e1", PieceType.KING, PieceColor.WHITE);
+        place(state, "d1", PieceType.QUEEN, PieceColor.WHITE);
+        place(state, "e8", PieceType.KING, PieceColor.BLACK);
+
+        assertFalse(
+                positionEvaluator
+                        .hasInsufficientMatingMaterial(
+                                state,
+                                PieceColor.WHITE
+                        )
+        );
+    }
+
+    @Test
+    void shouldHaveSufficientMatingMaterialWithRook() {
+
+        GameState state =
+                createEmptyState();
+
+        place(state, "e1", PieceType.KING, PieceColor.WHITE);
+        place(state, "a1", PieceType.ROOK, PieceColor.WHITE);
+        place(state, "e8", PieceType.KING, PieceColor.BLACK);
+
+        assertFalse(
+                positionEvaluator
+                        .hasInsufficientMatingMaterial(
+                                state,
+                                PieceColor.WHITE
+                        )
+        );
+    }
+
+    @Test
+    void shouldHaveSufficientMatingMaterialWithPawn() {
+
+        GameState state =
+                createEmptyState();
+
+        place(state, "e1", PieceType.KING, PieceColor.WHITE);
+        place(state, "e2", PieceType.PAWN, PieceColor.WHITE);
+        place(state, "e8", PieceType.KING, PieceColor.BLACK);
+
+        assertFalse(
+                positionEvaluator
+                        .hasInsufficientMatingMaterial(
+                                state,
+                                PieceColor.WHITE
+                        )
+        );
+    }
+
+    @Test
+    void shouldHaveSufficientMatingMaterialWithBishopAndKnight() {
+
+        GameState state =
+                createEmptyState();
+
+        place(state, "e1", PieceType.KING, PieceColor.WHITE);
+        place(state, "c1", PieceType.BISHOP, PieceColor.WHITE);
+        place(state, "g1", PieceType.KNIGHT, PieceColor.WHITE);
+
+        place(state, "e8", PieceType.KING, PieceColor.BLACK);
+
+        assertFalse(
+                positionEvaluator
+                        .hasInsufficientMatingMaterial(
+                                state,
+                                PieceColor.WHITE
+                        )
+        );
+    }
+
+    @Test
+    void shouldHaveSufficientMatingMaterialWithTwoKnights() {
+
+        GameState state =
+                createEmptyState();
+
+        place(state, "e1", PieceType.KING, PieceColor.WHITE);
+
+        place(state, "b1", PieceType.KNIGHT, PieceColor.WHITE);
+        place(state, "g1", PieceType.KNIGHT, PieceColor.WHITE);
+
+        place(state, "e8", PieceType.KING, PieceColor.BLACK);
+
+        assertFalse(
+                positionEvaluator
+                        .hasInsufficientMatingMaterial(
+                                state,
+                                PieceColor.WHITE
+                        )
+        );
+    }
+
+    @Test
+    void bishopShouldHavePossibleMateWhenOpponentHasKnight() {
+
+        GameState state =
+                createEmptyState();
+
+        place(state, "e1", PieceType.KING, PieceColor.WHITE);
+        place(state, "c1", PieceType.BISHOP, PieceColor.WHITE);
+
+        place(state, "e8", PieceType.KING, PieceColor.BLACK);
+        place(state, "g8", PieceType.KNIGHT, PieceColor.BLACK);
+
+        assertFalse(
+                positionEvaluator
+                        .hasInsufficientMatingMaterial(
+                                state,
+                                PieceColor.WHITE
+                        )
+        );
+    }
+
+    @Test
+    void knightShouldHavePossibleMateWhenOpponentHasBishop() {
+
+        GameState state =
+                createEmptyState();
+
+        place(state, "e1", PieceType.KING, PieceColor.WHITE);
+        place(state, "g1", PieceType.KNIGHT, PieceColor.WHITE);
+
+        place(state, "e8", PieceType.KING, PieceColor.BLACK);
+        place(state, "c8", PieceType.BISHOP, PieceColor.BLACK);
+
+        assertFalse(
+                positionEvaluator
+                        .hasInsufficientMatingMaterial(
+                                state,
+                                PieceColor.WHITE
+                        )
+        );
+    }
+
+    @Test
+    void bishopsOnBothSquareColorsShouldBeSufficient() {
+
+        GameState state =
+                createEmptyState();
+
+        place(state, "e1", PieceType.KING, PieceColor.WHITE);
+
+        place(state, "c1", PieceType.BISHOP, PieceColor.WHITE);
+        place(state, "f1", PieceType.BISHOP, PieceColor.WHITE);
+
+        place(state, "e8", PieceType.KING, PieceColor.BLACK);
+
+        assertFalse(
+                positionEvaluator
+                        .hasInsufficientMatingMaterial(
+                                state,
+                                PieceColor.WHITE
+                        )
+        );
+    }
+
+    @Test
+    void sameColoredBishopsAgainstBareKingShouldBeInsufficient() {
+
+        GameState state =
+                createEmptyState();
+
+        place(state, "e1", PieceType.KING, PieceColor.WHITE);
+
+        place(state, "c1", PieceType.BISHOP, PieceColor.WHITE);
+        place(state, "e3", PieceType.BISHOP, PieceColor.WHITE);
+
+        place(state, "e8", PieceType.KING, PieceColor.BLACK);
+
+        assertTrue(
+                positionEvaluator
+                        .hasInsufficientMatingMaterial(
+                                state,
+                                PieceColor.WHITE
+                        )
+        );
+    }
+
     // =========================================================
     // HELPERS
     // =========================================================
@@ -565,5 +852,48 @@ class PositionEvaluatorTest {
                 0,
                 1
         );
+    }
+
+    private GameState createEmptyState() {
+
+        GameState state =
+                GameState.initial();
+
+        Board board =
+                state.getBoard();
+
+        for (int rank = 0; rank < 8; rank++) {
+
+            for (int file = 0; file < 8; file++) {
+
+                board.clearSquare(
+                        new Square(
+                                file,
+                                rank
+                        )
+                );
+            }
+        }
+
+        return state;
+    }
+
+    private void place(
+            GameState state,
+            String square,
+            PieceType type,
+            PieceColor color
+    ) {
+
+        state.getBoard()
+                .setPiece(
+                        Square.fromAlgebraic(
+                                square
+                        ),
+                        new Piece(
+                                type,
+                                color
+                        )
+                );
     }
 }

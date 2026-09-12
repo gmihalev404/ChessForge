@@ -6,21 +6,33 @@ import com.example.chessforge.service.game.engine.model.*;
 import com.example.chessforge.service.game.engine.move.LegalMoveGenerator;
 import com.example.chessforge.service.game.engine.move.MoveApplier;
 import com.example.chessforge.service.game.engine.move.MoveGenerator;
+import com.example.chessforge.service.game.engine.move.MoveResolver;
 import com.example.chessforge.service.game.engine.notation.FenConverter;
+import com.example.chessforge.service.game.engine.notation.SanGenerator;
 import com.example.chessforge.service.game.engine.rule.AttackDetector;
 import com.example.chessforge.service.game.engine.rule.DrawEvaluator;
 import com.example.chessforge.service.game.engine.rule.PositionEvaluator;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
+@ExtendWith(MockitoExtension.class)
 class GameEngineTest {
 
     private GameEngine gameEngine;
+
     private PositionKeyFactory positionKeyFactory;
+
+    @Mock
+    private SanGenerator sanGenerator;
 
     @BeforeEach
     void setUp() {
@@ -47,11 +59,6 @@ class GameEngineTest {
                         attackDetector
                 );
 
-        positionKeyFactory =
-                new PositionKeyFactory(
-                        legalMoveGenerator
-                );
-
         DrawEvaluator drawEvaluator =
                 new DrawEvaluator(
                         positionEvaluator
@@ -60,8 +67,11 @@ class GameEngineTest {
         FenConverter fenConverter =
                 new FenConverter();
 
-        PositionKeyFactory positionKeyFactory =
-                new PositionKeyFactory(
+        positionKeyFactory =
+                new PositionKeyFactory(legalMoveGenerator);
+
+        MoveResolver moveResolver =
+                new MoveResolver(
                         legalMoveGenerator
                 );
 
@@ -73,7 +83,9 @@ class GameEngineTest {
                         positionEvaluator,
                         drawEvaluator,
                         fenConverter,
-                        positionKeyFactory
+                        positionKeyFactory,
+                        sanGenerator,
+                        moveResolver
                 );
     }
 
@@ -530,6 +542,80 @@ class GameEngineTest {
                 gameEngine.toFen(
                         restored
                 )
+        );
+    }
+
+    @Test
+    void shouldGenerateSan() {
+
+        GameState before =
+                GameState.initial();
+
+        GameState after =
+                GameState.initial();
+
+        Move move =
+                new Move(
+                        Square.fromAlgebraic("e2"),
+                        Square.fromAlgebraic("e4")
+                );
+
+        when(sanGenerator.generate(
+                before,
+                move,
+                after
+        )).thenReturn(
+                "e4"
+        );
+
+        assertEquals(
+                "e4",
+                gameEngine.generateSan(
+                        before,
+                        move,
+                        after
+                )
+        );
+
+        verify(sanGenerator)
+                .generate(
+                        before,
+                        move,
+                        after
+                );
+    }
+
+    @Test
+    void shouldResolveRequestedMove() {
+
+        GameState state =
+                GameState.initial();
+
+        Move move =
+                gameEngine.resolveMove(
+                        state,
+                        Square.fromAlgebraic("e2"),
+                        Square.fromAlgebraic("e4"),
+                        null
+                );
+
+        assertEquals(
+                Square.fromAlgebraic("e2"),
+                move.from()
+        );
+
+        assertEquals(
+                Square.fromAlgebraic("e4"),
+                move.to()
+        );
+
+        assertEquals(
+                MoveType.NORMAL,
+                move.type()
+        );
+
+        assertNull(
+                move.promotion()
         );
     }
 

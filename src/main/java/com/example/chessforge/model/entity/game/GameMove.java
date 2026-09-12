@@ -112,6 +112,9 @@ public class GameMove extends BaseEntity {
     )
     private LocalDateTime createdAt;
 
+    @Column(length = 16)
+    private String san;
+
     @PrePersist
     private void prePersist() {
 

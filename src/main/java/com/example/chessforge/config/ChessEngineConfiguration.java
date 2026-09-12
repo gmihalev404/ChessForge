@@ -4,16 +4,20 @@ import com.example.chessforge.service.game.engine.history.PositionKeyFactory;
 import com.example.chessforge.service.game.engine.move.LegalMoveGenerator;
 import com.example.chessforge.service.game.engine.move.MoveApplier;
 import com.example.chessforge.service.game.engine.move.MoveGenerator;
+import com.example.chessforge.service.game.engine.move.MoveResolver;
 import com.example.chessforge.service.game.engine.notation.FenConverter;
+import com.example.chessforge.service.game.notation.PgnGenerator;
+import com.example.chessforge.service.game.engine.notation.SanGenerator;
 import com.example.chessforge.service.game.engine.rule.AttackDetector;
 import com.example.chessforge.service.game.engine.rule.DrawEvaluator;
 import com.example.chessforge.service.game.engine.rule.PositionEvaluator;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+import java.time.Clock;
+
 @Configuration
 public class ChessEngineConfiguration {
-
     @Bean
     public MoveGenerator moveGenerator() {
         return new MoveGenerator();
@@ -79,4 +83,34 @@ public class ChessEngineConfiguration {
     public FenConverter fenConverter() {
         return new FenConverter();
     }
+
+    @Bean
+    public Clock clock() {
+        return Clock.systemDefaultZone();
+    }
+
+    @Bean
+    public SanGenerator sanGenerator(
+            LegalMoveGenerator legalMoveGenerator,
+            AttackDetector attackDetector,
+            PositionEvaluator positionEvaluator
+    ) {
+
+        return new SanGenerator(
+                legalMoveGenerator,
+                attackDetector,
+                positionEvaluator
+        );
+    }
+
+    @Bean
+    public MoveResolver moveResolver(
+            LegalMoveGenerator legalMoveGenerator
+    ) {
+
+        return new MoveResolver(
+                legalMoveGenerator
+        );
+    }
+
 }
