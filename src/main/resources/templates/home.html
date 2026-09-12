@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en"
+      xmlns:th="http://www.thymeleaf.org">
+
+<head>
+    <meta charset="UTF-8">
+    <title>ChessForge</title>
+</head>
+
+<body>
+
+<h1>ChessForge</h1>
+
+<div th:if="${username != null}">
+
+    <p>
+        Logged in as
+        <strong th:text="${username}">
+            username
+        </strong>
+    </p>
+
+    <form th:action="@{/logout}"
+          method="post">
+
+        <button type="submit">
+            Log out
+        </button>
+
+    </form>
+
+</div>
+
+<div th:if="${username == null}">
+
+    <p>
+        <a th:href="@{/login}">
+            Log in
+        </a>
+    </p>
+
+    <p>
+        <a th:href="@{/register}">
+            Register
+        </a>
+    </p>
+
+</div>
+
+</body>
+</html>

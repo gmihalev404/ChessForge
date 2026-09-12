@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en"
+      xmlns:th="http://www.thymeleaf.org">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Register | ChessForge</title>
+</head>
+
+<body>
+
+<h1>Create ChessForge account</h1>
+
+<p th:if="${error}"
+   th:text="${error}">
+</p>
+
+<form th:action="@{/register}"
+      th:object="${registerRequest}"
+      method="post">
+
+    <div>
+        <label for="username">
+            Username
+        </label>
+
+        <input id="username"
+               type="text"
+               th:field="*{username}"
+               required
+               maxlength="30">
+    </div>
+
+    <div>
+        <label for="email">
+            Email
+        </label>
+
+        <input id="email"
+               type="email"
+               th:field="*{email}"
+               required>
+    </div>
+
+    <div>
+        <label for="password">
+            Password
+        </label>
+
+        <input id="password"
+               type="password"
+               th:field="*{password}"
+               required>
+    </div>
+
+    <div>
+        <label for="confirmPassword">
+            Confirm password
+        </label>
+
+        <input id="confirmPassword"
+               type="password"
+               th:field="*{confirmPassword}"
+               required>
+    </div>
+
+    <button type="submit">
+        Register
+    </button>
+
+</form>
+
+<p>
+    Already have an account?
+    <a th:href="@{/login}">
+        Log in
+    </a>
+</p>
+
+</body>
+</html>

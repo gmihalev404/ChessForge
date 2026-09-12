@@ -27,8 +27,16 @@ public class SecurityConfiguration {
                                 .anyRequest()
                                 .permitAll()
                 )
-                .formLogin(
-                        Customizer.withDefaults()
+                .formLogin(form ->
+                        form
+                                .loginPage(
+                                        "/login"
+                                )
+                                .defaultSuccessUrl(
+                                        "/",
+                                        true
+                                )
+                                .permitAll()
                 )
                 .logout(
                         Customizer.withDefaults()
